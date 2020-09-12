@@ -1,0 +1,12 @@
+{
+  "name": "kino",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^10.1.1",
+    "node-sensel": "file:../node-sensel"
+  }
+}
