@@ -5,9 +5,14 @@ const noteBrightness = {};
 function addBright(k) {
   if(noteBrightness[k] === undefined) noteBrightness[k] = { count: 0, value: 0 };
   noteBrightness[k].count++;
+  let ki = "R" + (k+96)%12;
+  if(noteBrightness[ki] === undefined) noteBrightness[ki] = { count: 0, value: 0 };
+  noteBrightness[ki].count++;
 }
 function removeBright(k) {
   noteBrightness[k].count--;
+  let ki = "R" + (k+96)%12;
+  noteBrightness[ki].count--;
 }
 
 function render() {
@@ -33,17 +38,20 @@ function render() {
           for(let j=0;j<4;j++) {
             const y = j-Math.floor(i/2)-3;
             if(ii == 0 && j == 0) continue;
-            let b = noteBrightness[i*5-y*2+3];
+            const note = i*5-y*2+3;
+            let b = noteBrightness[note];
             if(b) b = b.value * 0.2;
             else b = 0;
+            let bi = noteBrightness["R" + (note+96)%12];
+            if(bi) b = Math.max(b, bi.value * 0.05);
             R.rect(x*s,y*s,s,s).fill(1,0,0.15+b);
           }
         }
         for(let i=-6;i<6;i++) {
           let x = (i+0.5) * s;
           let y = i * s;
-          R.line(x,-w,x,w).stroke(1,0,0.25,0.5);
-          R.line(-w,y,w,y).stroke(1,0,0.25,0.5);
+          R.line(x,-w,x,w).stroke(1,0,0.3,0.5);
+          R.line(-w,y,w,y).stroke(1,0,0.3,0.5);
         }
         for(let i=-3;i<3;i++) {
           R.translate((i*2+1)*s,(-i-0.5)*s).with(_=>{
