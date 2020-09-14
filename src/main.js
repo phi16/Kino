@@ -85,27 +85,117 @@ module.exports = o=>{
 
   R.onRender(render);
   let baseFreq = 440;
+
+  const soundList = [];
+  const fs = require('fs');
+  fs.readdir('./sound', (e,files)=>{
+    for(let f of files) {
+      if(/.*\.wav$/.test(f)) soundList.push("./sound/" + f);
+    }
+  });
+
+  const bpm = 120;
+  S.load("./sound/SONNY_D_kick_07.wav").then(x=>{
+    let lastPeriod = 0;
+    const g = S.node();
+    g.gain.value = 0.3;
+    R.onRender(_=>{
+      let lt = Math.floor(S.X.currentTime / (60 / bpm*2));
+      if(lt >= lastPeriod) {
+        lastPeriod = lt + 1;
+        const ss = S.X.createBufferSource();
+        ss.buffer = x;
+        ss.connect(g);
+        ss.start((lt + 1) * (60/bpm*2));
+      }
+    });
+  });
+  S.load("./sound/Kick_Clicky.wav").then(x=>{
+    let lastPeriod = 0;
+    const g = S.node();
+    g.gain.value = 0.3;
+    R.onRender(_=>{
+      let lt = Math.floor(S.X.currentTime / (60 / bpm*2));
+      if(lt >= lastPeriod) {
+        lastPeriod = lt + 1;
+        const ss = S.X.createBufferSource();
+        ss.buffer = x;
+        ss.connect(g);
+        ss.start((lt + 0.5) * (60/bpm*2));
+      }
+    });
+  });
+  S.load("./sound/PMET_Hi_Hat_02.wav").then(x=>{
+    let lastPeriod = 0;
+    const g = S.node();
+    g.gain.value = 0.05;
+    R.onRender(_=>{
+      let lt = Math.floor(S.X.currentTime / (60 / bpm));
+      if(lt >= lastPeriod) {
+        lastPeriod = lt + 1;
+        const ss = S.X.createBufferSource();
+        ss.buffer = x;
+        ss.connect(g);
+        ss.start((lt + 1.5) * (60/bpm));
+      }
+    });
+  });
+  S.load("./sound/BOI1DA_snare_07.wav").then(x=>{
+    let lastPeriod = 0;
+    const g = S.node();
+    g.gain.value = 0.1;
+    R.onRender(_=>{
+      let lt = Math.floor(S.X.currentTime / (60 / bpm * 4));
+      if(lt >= lastPeriod) {
+        lastPeriod = lt + 1;
+        const ss = S.X.createBufferSource();
+        ss.buffer = x;
+        ss.connect(g);
+        ss.start((lt + 1.125) * (60/bpm*4));
+        const ss2 = S.X.createBufferSource();
+        ss2.buffer = x;
+        ss2.connect(g);
+        ss2.start((lt + 1.125 + 0.0625) * (60/bpm*4));
+      }
+    });
+  });
+
   I.onTouch(function*() {
+    const s = 24;
+
     let c = yield;
     const st = new Date();
     const g = S.node();
     g.gain.value = 0;
-    const osc = S.X.createOscillator();
-    const og = S.X.createGain();
-    const osc2 = S.X.createOscillator();
-    const s = 24;
     const posX = Math.floor((c.x-I.width/2)/s+0.5), posY = Math.floor((c.y-I.height/2)/s)+1;
     let offset = posX*5 - posY*2;
     const freq = baseFreq * Math.pow(2.0, offset/12);
+    addBright(offset);
+
+    const osc = S.X.createOscillator();
+    const og = S.X.createGain();
+    const osc2 = S.X.createOscillator();
+    const sg = S.X.createGain();
     osc.frequency.value = freq*4;
     og.gain.value = freq;
     osc2.frequency.value = freq;
-    addBright(offset);
     osc.connect(og);
     osc.start();
     og.connect(osc2.frequency);
-    osc2.connect(g);
+    osc2.connect(sg);
+    sg.gain.value = 0.1;
+    sg.connect(g);
     osc2.start();
+
+    const ss = S.X.createBufferSource();
+    ss.playbackRate.value = freq / baseFreq;
+    S.load(soundList[Math.floor(Math.random()*soundList.length)]).then(x=>{
+      ss.buffer = x;
+      // ss.loop = true;
+      ss.start();
+    });
+    // ss.connect(g);
+
     g.gain.setTargetAtTime(Math.max(0,c.force-10)*0.001, S.X.currentTime+0.001, 0.01);
     while((c=yield).state == I.state.MOVE) {
       const posX = Math.floor((c.x-I.width/2)/s+0.5), posY = Math.floor((c.y-I.height/2)/s)+1;
@@ -115,6 +205,7 @@ module.exports = o=>{
         offset = newOffset;
         addBright(offset);
         const freq = baseFreq * Math.pow(2.0, offset/12);
+        ss.playbackRate.setTargetAtTime(freq / baseFreq, S.X.currentTime+0.001, 0.01);
         osc.frequency.setTargetAtTime(freq*4, S.X.currentTime+0.001, 0.01);
         og.gain.setTargetAtTime(freq*0.5, S.X.currentTime+0.001, 0.01);
         osc2.frequency.setTargetAtTime(freq, S.X.currentTime+0.001, 0.01);
@@ -125,7 +216,7 @@ module.exports = o=>{
     g.gain.setTargetAtTime(0, S.X.currentTime+0.001, 0.01 + 0.3*Math.exp(-dur*3.0));
     removeBright(offset);
     setTimeout(_=>{
-      osc2.disconnect();
+      g.disconnect();
     },2000);
   });
   L.add("Launched.");

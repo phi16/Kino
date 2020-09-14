@@ -1,5 +1,17 @@
 const senselLib = require('node-sensel');
 const sensel = senselLib.open();
+if(sensel == null) {
+  module.exports = {
+    proc: _=>_,
+    onTouch: _=>_,
+    state: senselLib.ContactState,
+    touches: {},
+    width: 0,
+    height: 0
+  };
+  return;
+}
+
 process.on('exit', _=>{
   if(sensel) sensel.close();
 });
@@ -39,5 +51,5 @@ module.exports = {
   state: senselLib.ContactState,
   touches,
   width: sensel.sensorInfo.width,
-  height: sensel.sensorInfo.height 
+  height: sensel.sensorInfo.height
 };
