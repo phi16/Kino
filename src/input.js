@@ -15,8 +15,8 @@ const o = {
   },
   state: senselLib.ContactState,
   touches: {},
-  width: 0,
-  height: 0
+  width: 230,
+  height: 130
 };
 
 // Sensel
@@ -28,6 +28,8 @@ if(sensel != null) {
   });
   sensel.startScanning();
   sensel.setContactsMask(senselLib.ContactsMask.ELLIPSE);
+  o.width = sensel.sensorInfo.width;
+  o.height = sensel.sensorInfo.height;
 
   const touches = o.touches;
   const touchListeners = [];

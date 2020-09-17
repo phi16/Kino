@@ -1,12 +1,31 @@
 let R = null, G = null, I = null, L = null, S = null;
 
-let a = 0;
+const padVisual = Array(16).fill(0), padTarget = Array(16).fill(0);
 function render() {
-  a += 0.1;
+  const pad = 5, frame = 7, rect = (I.width-pad*7)/8;
+  const mainW = I.width + frame*2, mainH = I.height + (pad+rect+frame)*2;
   R.translate(R.width/2, R.height/2).with(_=>{
-    R.scale(Math.min(R.width/I.width, R.height/I.height)*0.9).with(_=>{
-      R.rect(-I.width/2, -I.height/2, I.width, I.height).fill(1,0,0.1);
-      R.circle(Math.cos(a)*100,Math.sin(a)*100,100).fill(0.7,1,1);
+    R.scale(Math.min(R.width/mainW, R.height/mainH)).translate(-mainW/2+frame, -mainH/2+frame).with(_=>{
+      for(let i=0;i<8;i++) {
+        for(let j=0;j<2;j++) {
+          R.translate(i*(rect+pad)+rect/2, j*(mainH-frame*2-rect)+rect/2).with(_=>{
+            let k = i*2+1-j;
+            padVisual[k] += (padTarget[k] - padVisual[k]) / 2.0;
+            let s = padVisual[k] * rect;
+            if(s > 1.0) R.rect(-s/2, -s/2, s, s).stroke(1,0,0.2,0.5);
+            R.rect(-rect/2, -rect/2, rect, rect).stroke(1,0,0.3,0.5);
+          });
+        }
+      }
+      R.translate(0, rect+pad).with(_=>{
+        for(let id in I.touches) {
+          let c;
+          c = I.touches[id];
+          p = 1 - Math.exp(-c.force*0.002);
+          R.ellipse(c.x, c.y, c.minor_axis*p, c.major_axis*p, c.orientation*Math.PI/180).stroke(1,0,0.2,0.5);
+        }
+        R.rect(0, 0, I.width, I.height).stroke(1,0,0.3,0.5);
+      });
     });
   });
 }
@@ -53,12 +72,11 @@ module.exports = o=>{
   R.onRender(render);
   R.onEffect(effect);
   I.onTouch(function*(){
-    //
   });
   I.onPad(function*(k,v){
-    console.log(`${k},${v}`);
+    padTarget[k] = v*0.5+0.5;
     yield;
-    console.log(k);
+    padTarget[k] = 0;
   });
   L.add("Launched.");
   setTimeout(_=>{

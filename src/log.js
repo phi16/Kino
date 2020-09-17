@@ -23,7 +23,9 @@ E.l = x=>x;
 const logs = [];
 module.exports = {
   add: t=>{
-    logs.unshift({ text: t + "", pos: -1, time: 0 });
+    let lastPos = 0;
+    if(logs.length > 0 && logs[0].pos < lastPos) lastPos = logs[0].pos;
+    logs.unshift({ text: t + "", pos: lastPos-1, time: 0 });
   },
   render: R=>_=>{
     R.blend("lighter",_=>{
