@@ -184,11 +184,13 @@ o.onEffect = cb=>{
   effectCB = cb();
   effectCB.next();
 };
+o.resizeCallback = _=>_;
 
 function resize() {
   o.width = frontCanvas.width = canvas.width = container.clientWidth;
   o.height = frontCanvas.height = canvas.height = container.clientHeight;
   gl.resize(o.width, o.height);
+  o.resizeCallback();
 }
 window.addEventListener("resize",resize);
 resize();

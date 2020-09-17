@@ -490,7 +490,7 @@ module.exports = (gl,front)=>{
     vec3 original = texture2D(overlay, coord*0.5*vec2(1,-1)+0.5).rgb;
     col += mix(bloom, original, 0.5) * 1.5;
 
-    float dist = 1.8;
+    float dist = 3.0;
     float vignette = pow(normalize(vec3(coord*resolution,dist)).z,4.);
     col *= vignette;
     col = floor(col*255.+rand(coord))/255.;
