@@ -1,21 +1,26 @@
 document.oncontextmenu = _=>false;
 
-const canvas = document.getElementById("canvas");
 const container = document.getElementById("container");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById("canvas");
+const frontCanvas = document.createElement("canvas");
+const ctx = frontCanvas.getContext("2d");
+const gl = require("./gl.js")(canvas.getContext("webgl2"), frontCanvas);
 
 const renderCB = [];
+let effectCB = null;
 const proc = _=>{
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = "rgb(32,32,32)";
+  ctx.fillStyle = "rgb(0,0,0)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.lineCap = ctx.lineJoin = "round";
   for(let r of renderCB) r();
+  gl.copyCanvas();
+  if(effectCB) effectCB.next(true);
   requestAnimationFrame(proc);
 }
 proc();
 
-const o = (X=>{
+const Drawing = X=>{
   const Hue = (h,l,d)=>{
     const a = h*Math.PI*2;
     let r = Math.cos(a+0)*0.5+0.5;
@@ -167,15 +172,23 @@ const o = (X=>{
   };
   r.X = X;
   return r;
-})(ctx);
+};
+
+const o = Drawing(ctx);
+o.gl = gl;
 
 o.onRender = cb=>{
   renderCB.push(cb);
 };
+o.onEffect = cb=>{
+  effectCB = cb();
+  effectCB.next();
+};
 
 function resize() {
-  o.width = canvas.width = container.clientWidth;
-  o.height = canvas.height = container.clientHeight;
+  o.width = frontCanvas.width = canvas.width = container.clientWidth;
+  o.height = frontCanvas.height = canvas.height = container.clientHeight;
+  gl.resize(o.width, o.height);
 }
 window.addEventListener("resize",resize);
 resize();

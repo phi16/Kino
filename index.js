@@ -8,7 +8,6 @@ app.whenReady().then(_=>{
       nodeIntegration: true
     }
   });
-
+  w.setMenuBarVisibility(false);
   w.loadFile('index.html');
 });
-
