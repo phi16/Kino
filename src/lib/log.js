@@ -32,10 +32,10 @@ module.exports = {
       for(let i=0;i<logs.length;i++) {
         const u = logs[i];
         u.pos += (i - u.pos) / 2.0;
-        const alpha = E(u.time)(4,5)(E.i.q)(1,0);
-        R.text(u.text,10,-u.pos*30-10+R.height,30).l().fill(0,0,1.0*alpha);
+        const alpha = E(u.time)(2,3)(E.i.q)(1,0);
+        R.text(u.text,10,-u.pos*35-10+R.height,30).l().fill(0,0,0.5*alpha);
         u.time += 0.01;
-        if(u.time > 5) {
+        if(u.time > 3) {
           logs.splice(i,1);
           i--;
         }

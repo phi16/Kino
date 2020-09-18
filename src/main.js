@@ -5,7 +5,17 @@ module.exports = o=>{
   const L = o.log;
   const S = o.sound;
 
-  const graph = require('./kino/graph.js')();
+  let scroll = {
+    grab: null,
+    x: 0, y: 0,
+    mx: 0, my: 0
+  };
+  let selection = null, selectionParent = null;
+  let selectionType = null;
+
+  const Graph = require('./kino/graph.js')(o);
+  const Pad = require('./kino/pad.js')(o, Graph);
+
   const M = {
     pad: 5,
     frame: 7,
@@ -23,7 +33,6 @@ module.exports = o=>{
     M.scale = Math.min(R.width/M.mainW, R.height/M.mainH);
   };
   R.resizeCallback();
-
 
   const effects = [];
   function addEffect(dur,cb){
@@ -62,25 +71,53 @@ module.exports = o=>{
           X.quadraticCurveTo(xv, yv, xv+tx1*rm, yv+ty1*rm);
           X.lineTo(x1, y1);
         });
-        R.translate(0,M.centerY).with(_=>{
+        const scrX = scroll.x > 0 ? (1 - Math.exp(-scroll.x/M.multScale))*M.multScale : scroll.x;
+        scroll.mx += (scrX - scroll.mx) / 8.0;
+        scroll.my += (scroll.y - scroll.my) / 8.0;
+        // TODO: display level position
+        R.translate(scroll.mx, scroll.my+M.centerY).with(_=>{
           const s = M.multScale, cr = 5;
-          function d(x,y,passed,n) {
+          function d(x,y,passed,parent,n) {
             let md = 0;
             if(passed > 0.05) {
               n.mx += (n.x - n.mx) / 4.0;
               n.my += (n.y - n.my) / 4.0;
+              n.mr += (n.op.r - n.mr) / 4.0;
               n.passed += dt;
             }
+            if(n.grab) n.grabEff += (1 - n.grabEff) / 2.0;
+            else n.grabEff += (0 - n.grabEff) / 8.0;
             // (x,y) -> (cx, cy)
             const cx = x + n.mx*s, cy = y + n.my*s;
-            curvedLine(x, y, cx, cy, cr).stroke(1,0,0.7,2);
-            for(let t of n.next) {
-              d(cx, cy, n.passed, t);
+            const selVal = selection == n ? 0.4 : 0.2;
+            if(n.grabType == "edge") {
+              R.blend("lighter",_=>{
+                let px = x, py = y;
+                if(parent == Graph.root) px = -100*M.multScale, py = 0;
+                curvedLine(px, py, cx, cy, cr).stroke(1,0,selVal*n.grabEff,5);
+              });
             }
-            if(n.op.r > 0.001) R.circle(cx, cy, n.op.r*s).fill(0,0,0).stroke(1,0,0.7,2);
-            // if(n.bb) R.rect(cx+n.bb[0]*s, cy+n.bb[1]*s, (n.bb[2]-n.bb[0])*s, (n.bb[3]-n.bb[1])*s).stroke(1,0,0.5,0.5);
+            if(n.type == Graph.Ty.inst) {
+              R.X.setLineDash([6,3,0,3]);
+            } else if(n.type == Graph.Ty.pattern) {
+              R.X.setLineDash([0,4]);
+            }
+            curvedLine(x, y, cx, cy, cr).stroke(1,0,0.7,2);
+            R.X.setLineDash([]);
+            for(let t of n.next) {
+              d(cx, cy, n.passed, n, t);
+            }
+            if(n.mr > 0.001) {
+              if(n.grabType == "node") {
+                R.blend("lighter",_=>{
+                  R.circle(cx, cy, n.mr*s).fill(0,0,0).stroke(1,0,selVal*n.grabEff,6);
+                });
+              }
+              R.circle(cx, cy, n.mr*s).fill(0,0,0).stroke(1,0,0.7,2);
+            }
+            // R.rect(cx+n.bb[0]*s, cy+n.bb[1]*s, (n.bb[2]-n.bb[0])*s, (n.bb[3]-n.bb[1])*s).stroke(1,0,0.5,0.5);
           }
-          d(-(10-1)*s, 0, 1, graph.root);
+          d(-(100-1)*s, 0, 1, null, Graph.root);
           R.blend("lighter",_=>{
             for(let i=0;i<effects.length;i++) {
               const e = effects[i];
@@ -104,6 +141,9 @@ module.exports = o=>{
                 let s = padVisual[k] * M.rect;
                 if(s > 1.0) R.rect(-s/2, -s/2, s, s).stroke(1,0,0.2,0.5);
                 R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.3,0.5);
+                R.scale(M.rect/4).with(_=>{
+                  Pad.icon(k, padVisual[k]);
+                });
               });
             }
           }
@@ -156,45 +196,132 @@ module.exports = o=>{
   R.onEffect(effect);
 
   I.onTouch(function*(){
-    const c = yield;
-    console.log(c);
-    const cx = c.x * M.touchScale;
-    const cy = (c.y-I.height/2) * M.touchScale;
-    let type = null, node = null;
-    graph.collide(cx, cy, (t,x,y,n)=>{
+    let c = yield;
+    while(c.force < 50) c = yield;
+    const cx = (c.x-scroll.mx) * M.touchScale;
+    const cy = (c.y-I.height/2-scroll.my) * M.touchScale;
+    let type = null, parent = null, node = null;
+    Graph.collide(cx, cy, (t,x,y,p,n)=>{
+      if(type != null) return;
       type = t;
+      parent = p;
       node = n;
       if(t == "node") {
+        L.add(`Op.${n.op.name}`);
         addEffect(0.5, d=>{
           const rd = (0.5 - d) * 1.5;
           R.circle(x*M.multScale, y*M.multScale, (n.op.r+rd)*M.multScale).stroke(1,0,0.5*d,16*d*d);
         });
       } else {
+        L.add(`Ty.${n.type.name}`);
         const wi = n.length + 1;
         addEffect(0.5, d=>{
           const rd = (0.5 - d) * 1.5;
           R.line(
             (x-n.op.r-Math.pow(rd,3)*wi)*M.multScale, y*M.multScale,
-            (x-n.op.r-Math.pow(rd,0.5)*wi)*M.multScale, y*M.multScale
+            (x-n.op.r-Math.pow(rd,0.4)*wi)*M.multScale, y*M.multScale
           ).stroke(1,0,0.5*Math.sqrt(d),8*Math.sqrt(d));
         });
       }
     });
-    if(type == "edge") {
+    if(type == null) {
+      // scroll
+      while(true) {
+        const cm = yield;
+        if(cm.state == I.state.END) return;
+        const dx = cm.x - c.x;
+        const dy = cm.y - c.y;
+        if(Math.sqrt(dx*dx+dy*dy) > 5.0) break;
+      }
+      const capture = {};
+      scroll.grab = capture;
+      let x = scroll.mx, y = scroll.my;
+      while(true) {
+        const cm = yield;
+        if(scroll.grab != capture) return;
+        if(cm.state == I.state.END) break;
+        scroll.x = x + (cm.x - c.x) * 2;
+        scroll.y = y + (cm.y - c.y) * 2;
+      }
+      if(scroll.x > 0) scroll.x = 0;
+      // TODO: inertia
+      return;
+    }
+    node.grab = true;
+    node.grabType = type;
+    selection = node;
+    selectionParent = parent;
+    selectionType = type;
+    Pad.setHandler(selection.op == Graph.Op.none ? "leaf" : type);
+    if(type == "node") {
+      while(true) {
+        const cm = yield;
+        if(cm.state == I.state.END) break;
+      }
+    } else {
       const nx = node.x - node.length;
       const nl = node.length;
       while(true) {
         const cm = yield;
         if(cm.state == I.state.END) break;
         const cd = (cm.x - c.x) * M.touchScale * 2;
+        if(!node.grab) return;
         node.length = Math.max(0, Math.floor(nl + cd + 0.5));
         node.x = nx + node.length;
       }
-      graph.layout(graph.root);
+      if(node.op == Graph.Op.some) {
+        Graph.revert(node);
+      }
+      Graph.layoutAll();
+    }
+    node.grab = false;
+    if(selection == node) {
+      selection = null;
+      Pad.setHandler("basic");
     }
   });
   I.onPad(function*(k,v){
     padTarget[k] = v*0.5+0.5;
+    const h = Pad.handler(k);
+    if(h.name == "edge") {
+      if(h.i == 0) {
+        Graph.insert(selectionParent, selection);
+        selection.grab = false;
+        selection = null;
+        Pad.setHandler("basic");
+      } else if(h.i == 1) {
+        Graph.remove(selectionParent, selection);
+        selection.grab = false;
+        selection = null;
+        Pad.setHandler("basic");
+      }
+    } else if(h.name == "leaf") {
+      if(h.i == 0) {
+        const gen = Graph[selection.type.name + "Gen"];
+        if(gen.length == 1) {
+          Graph.setOp(selection, gen[0].op);
+          selection.grab = false;
+          selection = null;
+          Pad.setHandler("basic");
+        } else {
+          Graph.replace(selection);
+          Pad.setHandler("create-" + selection.type.name);
+        }
+      }
+    } else if(h.name == "node") {
+      // TODO: bypass (if available)
+    } else if(h.name.substr(0,7) == "create-") {
+      const gen = h.name == "create-inst" ? Graph.instGen
+                : h.name == "create-pattern" ? Graph.patternGen : Graph.soundGen;
+      if(h.i < gen.length) {
+        Graph.setOp(selection, gen[h.i].op);
+      } else {
+        Graph.revert(selection);
+      }
+      selection.grab = false;
+      selection = null;
+      Pad.setHandler("basic");
+    }
     yield;
     padTarget[k] = 0;
   });
