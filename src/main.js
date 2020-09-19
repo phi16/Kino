@@ -287,7 +287,15 @@ module.exports = o=>{
   I.onPad(function*(k,v){
     padTarget[k] = v*0.5+0.5;
     const h = Pad.handler(k);
-    if(h.name == "edge") {
+    if(h.name == "basic") {
+      if(h.i >= 8) {
+        // Graph.
+        yield;
+        padTarget[k] = 0;
+        // Graph.
+        return;
+      }
+    } else if(h.name == "edge") {
       if(h.i == 0) {
         Graph.insert(selectionParent, selection);
         selection.grab = false;

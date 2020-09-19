@@ -127,7 +127,7 @@ module.exports = o=>{
           lastTime = t;
         }
         const nt = r(lastTime);
-        if(nt.t - t < 0.25) {
+        if(nt && nt.t - t < 0.25) {
           const u = i(nt.f, nt.t);
           const g = S.X.createGain();
           u.connect(g).connect(o);
@@ -201,6 +201,7 @@ module.exports = o=>{
     return {
       eval: _=>_,
       val: t=>{
+        if(t%8 < 4) return null;
         return { t: Math.ceil((t+offset)*2)/2-offset, f: 880*Math.pow(2/3,Math.floor(Math.random()*5)) };
       }
     };
@@ -411,7 +412,7 @@ module.exports = o=>{
           const v = {
             op: Op.none,
             x: n.x, y: n.y,
-            length: 0,
+            length: n.length,
             next: []
           };
           settle(v);
