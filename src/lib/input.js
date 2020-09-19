@@ -18,10 +18,12 @@ const o = {
   width: 230,
   height: 130
 };
+const emu = require('./emu.js');
+o.domain = _=>_;
 
 // Sensel
 
-const sensel = senselLib.open();
+let sensel = senselLib.open();
 if(sensel != null) {
   process.on('exit', _=>{
     if(sensel) sensel.close();
@@ -30,34 +32,38 @@ if(sensel != null) {
   sensel.setContactsMask(senselLib.ContactsMask.ELLIPSE);
   o.width = sensel.sensorInfo.width;
   o.height = sensel.sensorInfo.height;
+} else {
+  errorHandler("Sensel not found.");
+  sensel = emu.sensel();
+  o.domain = sensel.domain;
+}
 
-  const touches = o.touches;
-  const touchListeners = [];
-  const touchHandlers = {};
-  o.proc = _=>{
-    sensel.frame(f=>{
-      f.contact(c=>{
-        if(c.state == senselLib.ContactState.START) {
-          touchHandlers[c.id] = [];
-          for(let l of touchListeners) {
-            const t = l();
-            t.next();
-            touchHandlers[c.id].push(t);
-          }
+const touches = o.touches;
+const touchListeners = [];
+const touchHandlers = {};
+o.proc = _=>{
+  sensel.frame(f=>{
+    f.contact(c=>{
+      if(c.state == senselLib.ContactState.START) {
+        touchHandlers[c.id] = [];
+        for(let l of touchListeners) {
+          const t = l();
+          t.next();
+          touchHandlers[c.id].push(t);
         }
-        if(c.state == senselLib.ContactState.END) {
-          delete touches[c.id];
-        } else touches[c.id] = c;
-        for(let t of touchHandlers[c.id]) {
-          t.next(c);
-        }
-      });
+      }
+      if(c.state == senselLib.ContactState.END) {
+        delete touches[c.id];
+      } else touches[c.id] = c;
+      for(let t of touchHandlers[c.id]) {
+        t.next(c);
+      }
     });
-  };
-  o.onTouch = h=>{
-    touchListeners.push(h);
-  };
-} else errorHandler("Sensel not found.");
+  });
+};
+o.onTouch = h=>{
+  touchListeners.push(h);
+};
 
 // Midi - NanoPad
 
@@ -97,7 +103,12 @@ navigator.requestMIDIAccess({sysex: true}).then(midi=>{
       });
     }
   }
-  if(!found) errorHandler("NanoPAD2 not found.");
+  if(!found) {
+    errorHandler("NanoPAD2 not found.");
+    emu.nanoPad(e=>{
+      padInput(e.data);
+    });
+  }
 });
 
 module.exports = o;

@@ -31,6 +31,10 @@ module.exports = o=>{
   M.touchScale = 1/M.multScale;
   R.resizeCallback = _=>{
     M.scale = Math.min(R.width/M.mainW, R.height/M.mainH);
+    I.domain(
+      R.width/2+M.scale*M.offsetX,
+      R.height/2+M.scale*(M.offsetY+M.cell),
+      I.width, I.height, M.scale);
   };
   R.resizeCallback();
 
