@@ -112,12 +112,13 @@ module.exports = o=>{
               d(cx, cy, n.passed, n, t);
             }
             if(n.mr > 0.001) {
+              const shape = n.op == Graph.Op.rhythm ? R.poly(cx, cy, n.mr*s, 4, 0) : R.circle(cx, cy, n.mr*s);
               if(n.grabType == "node") {
                 R.blend("lighter",_=>{
-                  R.circle(cx, cy, n.mr*s).fill(0,0,0).stroke(1,0,selVal*n.grabEff,6);
+                  shape.fill(0,0,0).stroke(1,0,selVal*n.grabEff,6);
                 });
               }
-              R.circle(cx, cy, n.mr*s).fill(0,0,0).stroke(1,0,0.7,2);
+              shape.fill(0,0,0).stroke(1,0,0.7,2);
             }
             // R.rect(cx+n.bb[0]*s, cy+n.bb[1]*s, (n.bb[2]-n.bb[0])*s, (n.bb[3]-n.bb[1])*s).stroke(1,0,0.5,0.5);
           }
@@ -256,7 +257,7 @@ module.exports = o=>{
     selection = node;
     selectionParent = parent;
     selectionType = type;
-    Pad.setHandler(selection.op == Graph.Op.none ? "leaf" : type);
+    Pad.setHandler(selection.op == Graph.Op.none ? "leaf" : type, selection);
     if(type == "node") {
       while(true) {
         const cm = yield;
@@ -288,11 +289,21 @@ module.exports = o=>{
     padTarget[k] = v*0.5+0.5;
     const h = Pad.handler(k);
     if(h.name == "basic") {
-      if(h.i >= 8) {
-        // Graph.
+      if(h.i == 0) {
+        if(Graph.recording()) {
+          Graph.stop();
+          L.add("Stop");
+        } else {
+          Graph.record();
+          L.add("Record");
+        }
+        Pad.setHandler("basic");
+      } else if(h.i >= 8) {
+        const m = Graph.note(h.i-8);
+        m.attack(1, 0.001);
         yield;
         padTarget[k] = 0;
-        // Graph.
+        m.release(0.1);
         return;
       }
     } else if(h.name == "edge") {
@@ -321,6 +332,14 @@ module.exports = o=>{
         }
       }
     } else if(h.name == "node") {
+      if(h.i >= 8) {
+        if(selection.op == Graph.Op.rhythm) {
+          const b = Graph.switchRhythm(h.i-8, selection);
+          if(b) L.add(`Register: #${h.i-8}`);
+          else L.add(`Release: #${h.i-8}`);
+          Pad.setHandler("node", selection);
+        }
+      }
       // TODO: bypass (if available)
     } else if(h.name.substr(0,7) == "create-") {
       const gen = h.name == "create-inst" ? Graph.instGen

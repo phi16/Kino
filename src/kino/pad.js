@@ -5,6 +5,25 @@ module.exports = (o,G)=>{
 
   const Icons = {
     none: _=>{ return R.shape(_=>_); },
+    circle: _=>{
+      return R.shape(_=>{
+        R.X.arc(0,0,0.85,0,Math.PI*2);
+      });
+    },
+    empty: _=>{
+      return R.shape(_=>{
+        const a = 1;
+        R.X.arc(0,0,0.85,Math.PI*2-a,Math.PI+a);
+      });
+    },
+    occupied: _=>{
+      return R.shape(_=>{
+        const a = 0.5;
+        R.X.arc(0,0,0.85,Math.PI*2-a,Math.PI+a);
+        R.X.moveTo(0,0);
+        R.X.lineTo(0,-0.9);
+      });
+    },
     bypass: _=>{
       return R.shape(_=>{
         const a = 0.5, b = Math.PI;
@@ -21,16 +40,30 @@ module.exports = (o,G)=>{
     },
     delete: _=>{
       return R.shape(_=>{
+        R.X.moveTo(0,-0.9);
+        R.X.arc(0,0.3,0.6,-Math.PI/2,Math.PI);
+      });
+    },
+    mute: _=>{
+      return R.shape(_=>{
         R.X.moveTo(-0.8,0.75);
         R.X.lineTo(0.8,0.75);
         R.X.moveTo(0,0.75);
         R.X.lineTo(0,-0.75);
       });
     },
+    select: _=>{
+      return R.shape(_=>{
+        R.X.moveTo(-1.2,0);
+        R.X.lineTo(0,0);
+        R.X.moveTo(0.8,0);
+        R.X.arc(0,0,0.8,0,Math.PI*2);
+      });
+    },
     create: _=>{
       return R.shape(_=>{
         R.X.moveTo(-1.2,0);
-        R.X.lineTo(-0.2,0);
+        R.X.lineTo(-0.8,0);
         R.X.moveTo(0.8,0);
         R.X.arc(0,0,0.8,0,Math.PI*2);
       });
@@ -70,6 +103,25 @@ module.exports = (o,G)=>{
         R.X.moveTo(-0.8,+0.4);
         R.X.lineTo(0.8,-0.4);
       });
+    },
+    record: _=>{
+      return R.shape(_=>{
+        R.X.arc(0,0,0.85,0,Math.PI*2);
+        R.X.moveTo(0,0);
+        R.X.arc(0,0,0.05,0,Math.PI*2);
+      });
+    },
+    stop: _=>{
+      return R.shape(_=>{
+        const a = 0.8;
+        R.X.moveTo(-a,-a);
+        R.X.lineTo(+a,-a);
+        R.X.lineTo(+a,+a);
+        R.X.lineTo(-a,+a);
+        R.X.lineTo(-a,-a);
+        R.X.moveTo(0,0);
+        R.X.arc(0,0,0.05,0,Math.PI*2);
+      });
     }
   };
   G.instGen.forEach(g=>{
@@ -95,17 +147,27 @@ module.exports = (o,G)=>{
     }
   };
 
+  let selection = null;
   const Handler = {
     basic: {
       icon: i=>{
         // For Debug
         // const v = Object.keys(Icons);
         // if(i < v.length) return Icons[v[i]];
+        if(i == 0) return G.recording() ? Icons.stop : Icons.record;
+        if(i >= 8) return G.rhythmNode(i-8) ? Icons.circle : Icons.none;
         return Icons.none;
       }
     },
     node: {
       icon: i=>{
+        if(selection && selection.op == G.Op.rhythm) {
+          if(i >= 8) {
+            const r = G.rhythmNode(i-8);
+            if(r == selection) return Icons.occupied;
+            return r ? Icons.circle : Icons.empty;
+          }
+        }
         if(i == 0) return Icons.bypass;
         return Icons.none;
       }
@@ -119,7 +181,10 @@ module.exports = (o,G)=>{
     },
     leaf: {
       icon: i=>{
-        if(i == 0) return Icons.create;
+        if(i == 0) {
+          if(selection && selection.type == G.Ty.inst) return Icons.select;
+          return Icons.create;
+        }
         return Icons.none;
       }
     },
@@ -146,10 +211,11 @@ module.exports = (o,G)=>{
     Handler[h].name = h;
   });
   let padHandler = Handler.basic;
-  SetHandler(Handler.basic);
+  SetHandler(padHandler);
 
   const p = {};
-  p.setHandler = n=>{
+  p.setHandler = (n,s)=>{
+    selection = s; // may null
     SetHandler(Handler[n]);
   };
   p.handler = k=>{

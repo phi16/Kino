@@ -127,15 +127,25 @@ module.exports = o=>{
           lastTime = t;
         }
         const nt = r(lastTime);
-        if(nt && nt.t - t < 0.25) {
-          const u = i(nt.f, nt.t);
-          const g = S.X.createGain();
-          u.connect(g).connect(o);
-          waitingNode = g;
-          setTimeout(_=>{
-            g.disconnect();
-          },1000); // TODO
-          lastTime = nt.t + 0.001;
+        if(nt) {
+          if(nt.dyn) {
+            nt.dyn.forEach(ut=>{
+              const u = i(ut.f, S.X.currentTime);
+              const g = S.X.createGain();
+              g.gain.value = 0;
+              u.connect(g).connect(o);
+              ut.consume(g);
+            });
+          } else if(nt.t - t < 0.25) {
+            const u = i(nt.f, nt.t);
+            const g = S.X.createGain();
+            u.connect(g).connect(o);
+            waitingNode = g;
+            setTimeout(_=>{
+              g.disconnect();
+            },1000); // TODO
+            lastTime = nt.t + 0.001;
+          }
         }
       },
       suspend: suspend
@@ -149,6 +159,38 @@ module.exports = o=>{
       h.step(t);
     }
   });
+
+  let recording = false;
+  let recordFirst = null, recordLast = null;
+  let bpmMeasured = false;
+  let firstBeat = null, bpm = null;
+  function* BPMEstimator() {
+    const st = yield;
+    if(!st) return;
+    let ft = -1;
+    let count = 0;
+    let c = null;
+    while(c = yield) {
+      ft = c;
+      count++;
+    }
+    if(count == 0) return; // and recording failed
+    const spb = (ft-st) / count;
+    const baseBPM = 60 / spb;
+    const adjustedBPM = Math.pow(2, ((Math.log2(baseBPM/80) % 1) + 1) % 1) * 80; // 80 ~ 160
+    firstBeat = st;
+    bpm = Math.round(adjustedBPM*10)/10;
+    L.add(`BPM: ${bpm}`);
+    bpmMeasured = true;
+  }
+  let estimator = null;
+
+  const rhythmNodes = {};
+  function rhythmNote(i) {
+    if(!rhythmNodes[i]) return { attack: _=>_, release: _=>_ };
+    if(recording && estimator && i == 0) estimator.next(S.X.currentTime);
+    return rhythmNodes[i].func.note();
+  }
 
   function NodeManager(n) {
     let inputs = [];
@@ -167,7 +209,13 @@ module.exports = o=>{
   }
   Op.sample.func = n=>{
     let b = null;
-    S.load("./sound/BDM_Indie_11_Conga.wav").then(x=>{
+    const sounds = [
+      "./sound/BDM_Indie_11_Conga.wav",
+      "./sound/SONNY_D_kick_07.wav",
+      "./sound/SampleMagic_tr808_conga_03.wav",
+      "./sound/ETFW_percussion_bongo.wav",
+    ];
+    S.load(sounds[Math.floor(Math.random()*sounds.length)]).then(x=>{
       b = x;
     });
     return {
@@ -197,12 +245,107 @@ module.exports = o=>{
     };
   };
   Op.rhythm.func = n=>{
-    const offset = Math.floor(Math.random()*4)/8;
+    const q = [];
+    const schedule = [];
+    let scheduleDur = -1;
+    let recordedNotes = [];
     return {
       eval: _=>_,
+      note: _=>{
+        let g = null;
+        let curVal = 0, curExp = 1, curState = "wait";
+        const envelope = [];
+        const u = {
+          f: 440*Math.pow(2/3,Math.floor(Math.random()*5)),
+          attack: (v,e)=>{
+            const t = S.X.currentTime;
+            if(g) g.gain.setTargetAtTime(v, t, e);
+            else curVal = v, curExp = e, curState = "prepare";
+            envelope.push({ t, v, e });
+          },
+          release: e=>{
+            const t = S.X.currentTime;
+            curVal = 0, curExp = e;
+            if(g) g.gain.setTargetAtTime(0, t, e);
+            else curState = "done";
+            envelope.push({ t, v: 0, e });
+            setTimeout(_=>{
+              if(g) g.disconnect();
+            }, 1000); // TODO
+          }
+        };
+        u.consume = gn=>{
+          g = gn;
+          if(curState == "prepare") g.gain.setTargetAtTime(curVal, S.X.currentTime, curExp);
+          if(curState == "done") g.disconnect(); // TODO ?
+          let i = q.indexOf(u);
+          if(i >= 0) q.splice(i,1);
+        };
+        q.push(u);
+        if(recording) recordedNotes.push({ envelope });
+        return u;
+      },
+      record: _=>{
+        recordedNotes = [];
+      },
+      stop: _=>{
+        if(bpm == null) return;
+        const durBeats = (recordLast - recordFirst) * (bpm / 60);
+        const estiBeats = Math.pow(2, Math.round(Math.max(Math.log2(durBeats), -2)));
+        if(scheduleDur < 0) {
+          // first recording
+          scheduleDur = estiBeats;
+        } else while(scheduleDur < estiBeats) {
+          // extend
+          let l = schedule.length;
+          for(let i=0;i<l;i++) {
+            const s = schedule[i];
+            schedule.push({
+              t: s.t + scheduleDur,
+              e: s.e
+            });
+          }
+          scheduleDur *= 2;
+        }
+        for(let rn of recordedNotes) {
+          if(rn.envelope.length == 0) return;
+          const st = rn.envelope[0].t;
+          const e = [];
+          for(let r of rn.envelope) {
+            e.push({ t: r.t - st, v: r.v, e: r.e });
+          }
+          const t = Math.round((st - firstBeat) * (bpm / 60) * 4) / 4 % scheduleDur;
+          // TODO: insert correct position
+          schedule.push({ t, e });
+        }
+        recordedNotes = [];
+      },
       val: t=>{
-        if(t%8 < 4) return null;
-        return { t: Math.ceil((t+offset)*2)/2-offset, f: 880*Math.pow(2/3,Math.floor(Math.random()*5)) };
+        if(q.length > 0) return { t: 0, dyn: [].concat(q) };
+        if(schedule.length > 0) {
+          const wt = (t - firstBeat) * (bpm / 60);
+          let st = Math.floor(wt / scheduleDur) * scheduleDur;
+          let bt = wt - st;
+          let nextEvent = null;
+          // TODO: binary search
+          for(let s of schedule) {
+            if(bt <= s.t) {
+              if(nextEvent == null || s.t < nextEvent.t) nextEvent = s;
+            }
+          }
+          if(nextEvent == null) {
+            // Get the first event
+            bt = 0;
+            st += scheduleDur;
+            for(let s of schedule) {
+              if(bt <= s.t) {
+                if(nextEvent == null || s.t < nextEvent.t) nextEvent = s;
+              }
+            }
+          }
+          return { t: firstBeat + (st + nextEvent.t) / (bpm / 60), f: 880*Math.pow(2/3,Math.floor(Math.random()*5)) };
+        }
+        return null;
       }
     };
   };
@@ -243,6 +386,7 @@ module.exports = o=>{
           for(let i of n.next) {
             if(i.func.val) {
               let ce = i.func.val(t);
+              // TODO: fix
               if(me == null || ce.t < me.t) me = ce;
             }
           }
@@ -357,7 +501,7 @@ module.exports = o=>{
   };
   g.layoutAll = _=>{
     const m = g.layout(g.root, null, Ty.sound);
-    if(m > 0) L.add(`Mod.${m}`);
+    // if(m > 0) L.add(`Mod.${m}`);
   };
   g.insert = (p,n)=>{
     for(let i=0;i<p.next.length;i++) {
@@ -470,6 +614,43 @@ module.exports = o=>{
     op: Op.play,
     icon: "conv"
   }];
+
+  g.switchRhythm = (i,n)=>{
+    if(rhythmNodes[i] === n) {
+      delete rhythmNodes[i];
+      return false;
+    }
+    rhythmNodes[i] = n;
+    return true;
+  };
+  g.recording = _=>recording;
+  g.note = i=>{
+    if(recording && !recordFirst) recordFirst = S.X.currentTime;
+    return rhythmNote(i);
+  };
+  g.rhythmNode = i=>{
+    return rhythmNodes[i];
+  };
+  g.record = _=>{
+    recording = true;
+    if(!bpmMeasured) {
+      estimator = BPMEstimator();
+      estimator.next();
+    }
+    Object.keys(rhythmNodes).forEach(i=>{
+      rhythmNodes[i].func.record();
+    });
+    recordFirst = recordLast = null;
+  };
+  g.stop = _=>{
+    recording = false;
+    recordLast = S.X.currentTime;
+    if(estimator) estimator.next(false);
+    Object.keys(rhythmNodes).forEach(i=>{
+      rhythmNodes[i].func.stop();
+    });
+    recordFirst = recordLast = null;
+  };
 
   return g;
 };

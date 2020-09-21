@@ -83,7 +83,7 @@ function padInput(e) {
       t.next();
       padTouches[k].push(t);
     }
-  } else {
+  } else if(e[0] == 0x80 && padTouches[k]) {
     for(let t of padTouches[k]) {
       t.next();
     }
