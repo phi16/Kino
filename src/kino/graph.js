@@ -101,7 +101,7 @@ module.exports = o=>{
       }
     }
   }
-  function addRhythm(i, r, o) {
+  function addRhythm(i, r, o, cb) {
     let lastTime = 0, lastEvent = null;
     // TODO: multiple waiting nodes
     let waitingNode = null;
@@ -136,6 +136,7 @@ module.exports = o=>{
               u.connect(g).connect(o);
               ut.consume(g);
             });
+            cb(1.0);
           } else if(nt.t - t < 0.25) {
             const u = i(nt.f, nt.t);
             const g = S.X.createGain();
@@ -145,6 +146,9 @@ module.exports = o=>{
               g.disconnect();
             },1000); // TODO
             lastTime = nt.t + 0.001;
+            setTimeout(_=>{
+              cb(1.0);
+            },1000*(nt.t-S.X.currentTime));
           }
         }
       },
@@ -251,6 +255,7 @@ module.exports = o=>{
     let recordedNotes = [];
     return {
       eval: _=>_,
+      dur: _=>scheduleDur,
       note: _=>{
         let g = null;
         let curVal = 0, curExp = 1, curState = "wait";
@@ -289,8 +294,9 @@ module.exports = o=>{
         recordedNotes = [];
       },
       stop: _=>{
-        if(bpm == null) return;
+        if(bpm == null || recordFirst == null || recordedNotes.length == 0) return;
         const durBeats = (recordLast - recordFirst) * (bpm / 60);
+        // TODO: adjust
         const estiBeats = Math.pow(2, Math.round(Math.max(Math.log2(durBeats), -2)));
         if(scheduleDur < 0) {
           // first recording
@@ -315,7 +321,7 @@ module.exports = o=>{
             e.push({ t: r.t - st, v: r.v, e: r.e });
           }
           const t = Math.round((st - firstBeat) * (bpm / 60) * 4) / 4 % scheduleDur;
-          // TODO: insert correct position
+          // TODO: insert to correct position
           schedule.push({ t, e });
         }
         recordedNotes = [];
@@ -323,6 +329,7 @@ module.exports = o=>{
       val: t=>{
         if(q.length > 0) return { t: 0, dyn: [].concat(q) };
         if(schedule.length > 0) {
+          // TODO: looks buggy
           const wt = (t - firstBeat) * (bpm / 60);
           let st = Math.floor(wt / scheduleDur) * scheduleDur;
           let bt = wt - st;
@@ -353,11 +360,14 @@ module.exports = o=>{
     const out = S.X.createGain();
     let rh = null;
     return {
+      level: 0,
       eval: _=>{
         // TODO: stop dangling nodes
         removeRhythm(rh);
         if(n.next[0].func && n.next[0].func.val && n.next[1].func && n.next[1].func.val) {
-          rh = addRhythm(n.next[0].func.val, n.next[1].func.val, out);
+          rh = addRhythm(n.next[0].func.val, n.next[1].func.val, out, v=>{
+            if(n.func.level < v) n.func.level = v;
+          });
         }
       },
       val: out
@@ -650,6 +660,10 @@ module.exports = o=>{
       rhythmNodes[i].func.stop();
     });
     recordFirst = recordLast = null;
+  };
+  g.beatIndex = _=>{
+    if(bpm == null) return null;
+    return (S.X.currentTime - firstBeat) * (bpm / 60);
   };
 
   return g;

@@ -45,7 +45,18 @@ module.exports = o=>{
 
   const padVisual = Array(16).fill(0), padTarget = Array(16).fill(0);
   let prevTime = new Date();
+  let prevBeatIndex = -1, beatIndex = -1;
   function render() {
+    prevBeatIndex = beatIndex;
+    let cbi = Graph.beatIndex();
+    if(cbi != null) {
+      beatIndex = Math.floor(cbi*4)/4;
+      if(Graph.recording() && prevBeatIndex >= 0 && beatIndex >= 0) {
+        if(prevBeatIndex != beatIndex && Math.floor(beatIndex) == beatIndex) {
+          L.add(`${beatIndex%16}`);
+        }
+      }
+    }
     const curTime = new Date();
     const dt = (curTime - prevTime) / 1000;
     prevTime = curTime;
@@ -119,6 +130,19 @@ module.exports = o=>{
                 });
               }
               shape.fill(0,0,0).stroke(1,0,0.7,2);
+              if(n.op == Graph.Op.play) {
+                R.blend("lighter",_=>{
+                  let r = (n.func.level-0.2)*n.mr;
+                  if(r > 0) R.circle(cx, cy, r*s).fill(0,0,1);
+                });
+                n.func.level *= 0.95;
+              }
+              if(n.op == Graph.Op.rhythm) {
+                const dur = n.func.dur();
+                if(dur > 0) {
+                  R.text(dur, cx + (0.1+n.mr)*s, cy + n.mr*s, n.mr*s).l().fill(0,0,1);
+                }
+              }
             }
             // R.rect(cx+n.bb[0]*s, cy+n.bb[1]*s, (n.bb[2]-n.bb[0])*s, (n.bb[3]-n.bb[1])*s).stroke(1,0,0.5,0.5);
           }
@@ -146,6 +170,11 @@ module.exports = o=>{
                 let s = padVisual[k] * M.rect;
                 if(s > 1.0) R.rect(-s/2, -s/2, s, s).stroke(1,0,0.2,0.5);
                 R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.3,0.5);
+                if(Graph.recording()) {
+                  const c = beatIndex % 4;
+                  const bk = (i + j*8)/4;
+                  if(c == bk) R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.5,1.0);
+                }
                 R.scale(M.rect/4).with(_=>{
                   Pad.icon(k, padVisual[k]);
                 });
@@ -342,16 +371,18 @@ module.exports = o=>{
       }
       // TODO: bypass (if available)
     } else if(h.name.substr(0,7) == "create-") {
-      const gen = h.name == "create-inst" ? Graph.instGen
-                : h.name == "create-pattern" ? Graph.patternGen : Graph.soundGen;
-      if(h.i < gen.length) {
-        Graph.setOp(selection, gen[h.i].op);
-      } else {
-        Graph.revert(selection);
+      if(h.i < 8) {
+        const gen = h.name == "create-inst" ? Graph.instGen
+                  : h.name == "create-pattern" ? Graph.patternGen : Graph.soundGen;
+        if(h.i < gen.length) {
+          Graph.setOp(selection, gen[h.i].op);
+        } else {
+          Graph.revert(selection);
+        }
+        selection.grab = false;
+        selection = null;
+        Pad.setHandler("basic");
       }
-      selection.grab = false;
-      selection = null;
-      Pad.setHandler("basic");
     }
     yield;
     padTarget[k] = 0;
