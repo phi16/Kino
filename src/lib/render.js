@@ -162,10 +162,17 @@ const Drawing = X=>{
   r.rotate = a=>Affine().rotate(a);
   r.scale = s=>Affine().scale(s);
   r.blend = (m,cb)=>{
+    const o = X.globalCompositeOperation;
     X.globalCompositeOperation = m;
     cb();
-    X.globalCompositeOperation = "source-over";
+    X.globalCompositeOperation = o;
   };
+  r.alpha = (a,cb)=>{
+    const o = X.globalAlpha;
+    X.globalAlpha = a;
+    cb();
+    X.globalAlpha = o;
+  }
   r.measure = (t,s)=>{
     X.font = s + "px Comfortaa";
     return X.measureText(t).width;

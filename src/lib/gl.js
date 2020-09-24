@@ -379,7 +379,9 @@ module.exports = (gl,front)=>{
   }
   `;
 
-  o.cloneFlip = buildMaterial(`
+  o.clone = clone;
+
+  o.blend = buildMaterial(`
   attribute vec2 vertex;
   varying vec2 coord;
   void main() {
@@ -389,12 +391,15 @@ module.exports = (gl,front)=>{
   `,`
   varying vec2 coord;
   uniform sampler2D texture;
+  uniform sampler2D original;
   void main() {
-      vec2 uv = coord * 0.5 * vec2(1,-1) + 0.5;
-      vec3 col = texture2D(texture, uv).rgb;
-      gl_FragColor = vec4(col,1);
+      vec2 colUV = coord * 0.5 * vec2(1,-1) + 0.5;
+      vec3 col = texture2D(texture, colUV).rgb;
+      vec2 origUV = coord * 0.505 + 0.5;
+      vec3 orig = texture2D(original, origUV).rgb;
+      gl_FragColor = vec4(mix(col, orig, 0.5),1);
   }
-  `,rect,["texture"]);
+  `,rect,["texture", "original"]);
 
   o.color = buildMaterial(`
   attribute vec2 vertex;

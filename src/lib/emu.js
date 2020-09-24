@@ -57,15 +57,19 @@ module.exports = {
   },
   nanoPad: cb=>{
     const keys = "q1w2e3r4t5y6u7i8";
+    const pressed = Array(16);
+    pressed.fill(false);
     document.addEventListener("keydown",e=>{
       const i = keys.indexOf(e.key);
-      if(i != -1) {
+      if(i != -1 && !pressed[i]) {
+        pressed[i] = true;
         cb({ data: [ 0x90, (i+4)%16, 100 ] });
       }
     });
     document.addEventListener("keyup",e=>{
       const i = keys.indexOf(e.key);
-      if(i != -1) {
+      if(i != -1 && pressed[i]) {
+        pressed[i] = false;
         cb({ data: [ 0x80, (i+4)%16, 0x80 ] });
       }
     });

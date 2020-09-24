@@ -11,10 +11,11 @@ module.exports = o=>{
     mx: 0, my: 0
   };
   let selection = null, selectionParent = null;
-  let selectionType = null;
+  let selectionType = null, selectionAction = null;
 
   const Graph = require('./kino/graph.js')(o);
   const Pad = require('./kino/pad.js')(o, Graph);
+  const Keyboard = require('./kino/keyboard.js')(o, Graph);
 
   const M = {
     pad: 5,
@@ -89,7 +90,6 @@ module.exports = o=>{
         const scrX = scroll.x > 0 ? (1 - Math.exp(-scroll.x/M.multScale))*M.multScale : scroll.x;
         scroll.mx += (scrX - scroll.mx) / 8.0;
         scroll.my += (scroll.y - scroll.my) / 8.0;
-        // TODO: display level position
         R.translate(scroll.mx, scroll.my+M.centerY).with(_=>{
           const s = M.multScale, cr = 5;
           function d(x,y,passed,parent,n) {
@@ -159,6 +159,9 @@ module.exports = o=>{
             }
           });
         });
+        R.translate(0, M.cell).with(_=>{
+          Keyboard.render();
+        });
 
         // Input Overlay
         R.blend("lighter",_=>{
@@ -169,12 +172,12 @@ module.exports = o=>{
                 padVisual[k] += (padTarget[k] - padVisual[k]) / 2.0;
                 let s = padVisual[k] * M.rect;
                 if(s > 1.0) R.rect(-s/2, -s/2, s, s).stroke(1,0,0.2,0.5);
-                R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.3,0.5);
-                if(Graph.recording()) {
-                  const c = beatIndex % 4;
-                  const bk = (i + j*8)/4;
-                  if(c == bk) R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.5,1.0);
-                }
+                let bi = Graph.beatIndex();
+                if(Graph.recording() && bi != null) {
+                  const bk = ((bi - (i + j*8)/4) % 4 + 4) % 4;
+                  const t = Math.exp(-Math.max(0,bk-0.125)*4);
+                  R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,t*0.2+0.3,t*1.0+0.5);
+                } else R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.3,0.5);
                 R.scale(M.rect/4).with(_=>{
                   Pad.icon(k, padVisual[k]);
                 });
@@ -196,11 +199,17 @@ module.exports = o=>{
 
   function* effect() {
     const mainBuffer = G.LoopBuffer();
+    const miniBuffer = G.LoopBuffer();
     const bloomBuffer = G.LoopBuffer();
     while(yield) {
       mainBuffer.render(_=>{
-        G.cloneFlip.texture(G.front.use());
-        G.cloneFlip();
+        G.blend.texture(G.front.use());
+        G.blend.original(mainBuffer.use());
+        G.blend();
+      });
+      miniBuffer.render(_=>{
+        G.clone.texture(mainBuffer.use());
+        G.clone();
       });
       bloomBuffer.render(_=>{
         G.color.color(0,0,0);
@@ -209,13 +218,13 @@ module.exports = o=>{
       for(let i=0;i<8;i++) {
         bloomBuffer.render(_=>{
           G.additive.self(bloomBuffer.use());
-          G.additive.texture(mainBuffer.use());
+          G.additive.texture(miniBuffer.use());
           G.additive.pixelRes(R.width, R.height);
           G.additive.scale(Math.pow(2,-i));
           G.additive();
         });
-        mainBuffer.render(_=>{
-          G.minimize.texture(mainBuffer.use());
+        miniBuffer.render(_=>{
+          G.minimize.texture(miniBuffer.use());
           G.minimize.pixelRes(R.width, R.height);
           G.minimize();
         });
@@ -288,9 +297,20 @@ module.exports = o=>{
     selectionType = type;
     Pad.setHandler(selection.op == Graph.Op.none ? "leaf" : type, selection);
     if(type == "node") {
+      const st = new Date();
+      const key = {};
+      selectionAction = key;
       while(true) {
         const cm = yield;
         if(cm.state == I.state.END) break;
+      }
+      const du = (new Date() - st) / 1000;
+      if(du < 0.5 && selectionAction == key) {
+        // Open the node
+        if(selection.op == Graph.Op.rhythm) {
+          Keyboard.open(selection);
+        }
+        // TODO: revoke all touch/pads
       }
     } else {
       const nx = node.x - node.length;
@@ -315,6 +335,7 @@ module.exports = o=>{
     }
   });
   I.onPad(function*(k,v){
+    selectionAction = null;
     padTarget[k] = v*0.5+0.5;
     const h = Pad.handler(k);
     if(h.name == "basic") {
@@ -385,6 +406,7 @@ module.exports = o=>{
       }
     }
     yield;
+    selectionAction = null;
     padTarget[k] = 0;
   });
 

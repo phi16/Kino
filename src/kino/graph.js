@@ -20,7 +20,7 @@ module.exports = o=>{
     default: n=>{
       if(n.op.arity.length == 0) {
         const u = Math.max(0.25, n.op.r);
-        n.bb = [-u,-u,u,u];
+        n.bb = [-u,-u,u+0.25,u];
       } else if(n.op.arity.length == 1) {
         const c = n.next[0];
         c.x = c.length + 1 - c.bb[0];
@@ -214,12 +214,18 @@ module.exports = o=>{
   Op.sample.func = n=>{
     let b = null;
     const sounds = [
-      "./sound/BDM_Indie_11_Conga.wav",
-      "./sound/SONNY_D_kick_07.wav",
-      "./sound/SampleMagic_tr808_conga_03.wav",
-      "./sound/ETFW_percussion_bongo.wav",
+      "BDM_Indie_11_Conga.wav",
+      "SONNY_D_kick_07.wav",
+      "SampleMagic_tr808_conga_03.wav",
+      "ETFW_percussion_bongo.wav",
+      "BOI1DA_snare_07.wav",
+      "CHAD_HUGO_conga_one_shot_pole_monster.wav",
+      "JAY_DEE_vol_01_kit_12_clap.wav",
+      "Kick_Clicky.wav",
+      "PMET_Hi_Hat_02.wav",
+      "SONNY_D_kick_05.wav"
     ];
-    S.load(sounds[Math.floor(Math.random()*sounds.length)]).then(x=>{
+    S.load("./sound/" + sounds[Math.floor(Math.random()*sounds.length)]).then(x=>{
       b = x;
     });
     return {
@@ -362,7 +368,6 @@ module.exports = o=>{
     return {
       level: 0,
       eval: _=>{
-        // TODO: stop dangling nodes
         removeRhythm(rh);
         if(n.next[0].func && n.next[0].func.val && n.next[1].func && n.next[1].func.val) {
           rh = addRhythm(n.next[0].func.val, n.next[1].func.val, out, v=>{
@@ -370,7 +375,10 @@ module.exports = o=>{
           });
         }
       },
-      val: out
+      val: out,
+      remove: _=>{
+        removeRhythm(rh);
+      }
     };
   };
   Op.merge.func = n=>{
@@ -396,8 +404,7 @@ module.exports = o=>{
           for(let i of n.next) {
             if(i.func.val) {
               let ce = i.func.val(t);
-              // TODO: fix
-              if(me == null || ce.t < me.t) me = ce;
+              if(ce && (me == null || !me.dyn && (ce.dyn || ce.t < me.t))) me = ce;
             }
           }
           return me;
@@ -465,11 +472,12 @@ module.exports = o=>{
       const dx = x - cx;
       const dy = y - cy;
       if(n.op != Op.root) {
-        let d = Math.sqrt(dx*dx+dy*dy);
+        const d = Math.sqrt(dx*dx+dy*dy);
+        const bias = n.op == Op.none ? 0.5 : 0;
         if(d < n.op.r * 1) {
           cb("node", cx, cy, p, n);
           return;
-        } else if(-n.length-1 < dx && dx < 0 && Math.abs(dy) < 0.5) {
+        } else if(-n.length-1 < dx && dx < bias && Math.abs(dy) < 0.5) {
           cb("edge", cx, cy, p, n);
           return;
         } else if(d < n.op.r * 2) {
@@ -576,6 +584,16 @@ module.exports = o=>{
         }
       }
     }
+    function recur(n) {
+      if(n.func.remove) n.func.remove();
+      Object.keys(rhythmNodes).forEach(k=>{
+        if(rhythmNodes[k] == n) delete rhythmNodes[k];
+      });
+      for(let c of n.next) {
+        recur(c);
+      }
+    }
+    recur(n);
     g.layoutAll();
   };
   g.setOp = (n,op)=>{
