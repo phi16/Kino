@@ -11,7 +11,7 @@ module.exports = o=>{
     mx: 0, my: 0
   };
   let selection = null, selectionParent = null;
-  let selectionType = null, selectionAction = null;
+  let selectionType = null;
 
   const Graph = require('./kino/graph.js')(o);
   const Pad = require('./kino/pad.js')(o, Graph);
@@ -44,7 +44,6 @@ module.exports = o=>{
     effects.push({ dur, cb });
   };
 
-  const padVisual = Array(16).fill(0), padTarget = Array(16).fill(0);
   let prevTime = new Date();
   let prevBeatIndex = -1, beatIndex = -1;
   function render() {
@@ -169,8 +168,7 @@ module.exports = o=>{
             for(let j=0;j<2;j++) {
               R.translate(i*M.cell+M.rect/2, j*(M.mainH-M.frame*2-M.rect)+M.rect/2).with(_=>{
                 let k = i*2+1-j;
-                padVisual[k] += (padTarget[k] - padVisual[k]) / 2.0;
-                let s = padVisual[k] * M.rect;
+                let s = Pad.sizeAt(k) * M.rect;
                 if(s > 1.0) R.rect(-s/2, -s/2, s, s).stroke(1,0,0.2,0.5);
                 let bi = Graph.beatIndex();
                 if(Graph.recording() && bi != null) {
@@ -179,7 +177,7 @@ module.exports = o=>{
                   R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,t*0.2+0.3,t*1.0+0.5);
                 } else R.rect(-M.rect/2, -M.rect/2, M.rect, M.rect).stroke(1,0,0.3,0.5);
                 R.scale(M.rect/4).with(_=>{
-                  Pad.icon(k, padVisual[k]);
+                  Pad.icon(k);
                 });
               });
             }
@@ -238,6 +236,89 @@ module.exports = o=>{
   R.onRender(render);
   R.onEffect(effect);
 
+  const Handler = {
+    basic: (i,cb)=>{
+      if(i == 0) {
+        if(Graph.recording()) cb("stop", function*() {
+          Graph.stop();
+          L.add("Stop");
+          Pad.set(Handler.basic);
+        }); else cb("record", function*() {
+          Graph.record();
+          L.add("Record");
+          Pad.set(Handler.basic);
+        });
+      } else if(i >= 8) {
+        if(Graph.rhythmNode(i-8)) cb("circle", function*(v) {
+          const m = Graph.note(i-8);
+          m.attack(1, 0.001);
+          yield;
+          m.release(0.1);
+        });
+      }
+    },
+    leaf: (i,cb)=>{
+      if(i != 0) return;
+      const gen = Graph[selection.type.name + "Gen"];
+      if(gen.length == 1) {
+        cb("create", function*() {
+          Graph.setOp(selection, gen[0].op);
+          selection.grab = false;
+          selection = null;
+          Pad.set(Handler.basic);
+        });
+      } else {
+        cb("select", function*() {
+          Graph.replace(selection);
+          Pad.set(Handler.create(selection.type.name));
+        });
+      }
+    },
+    edge: (i,cb)=>{
+      if(i == 0) cb("inject", function*() {
+        Graph.insert(selectionParent, selection);
+        selection.grab = false;
+        selection = null;
+        Pad.set(Handler.basic);
+      });
+      if(i == 1) cb("delete", function*() {
+        Graph.remove(selectionParent, selection);
+        selection.grab = false;
+        selection = null;
+        Pad.set(Handler.basic);
+      });
+    },
+    node: (i,cb)=>{
+      if(i == 0) cb("bypass", function*() {
+        // TODO
+      });
+      if(i < 8) return;
+      if(selection.op != Graph.Op.rhythm) return;
+      const r = Graph.rhythmNode(i-8);
+      const icon = r == selection ? "occupied" : r ? "circle" : "empty";
+      cb(icon, function*() {
+        const b = Graph.switchRhythm(i-8, selection);o
+        if(b) L.add(`Register: #${i-8}`);
+        else L.add(`Release: #${i-8}`);
+        Pad.set(Handler.node);
+      });
+    },
+    create: n=>(i,cb)=>{
+      if(i >= 8) return;
+      const gen = Graph[n + "Gen"];
+      if(i < gen.length) {
+        const g = gen[i];
+        cb(g.icon, function*() {
+          Graph.setOp(selection, g.op);
+          selection.grab = false;
+          selection = null;
+          Pad.set(Handler.basic);
+        });
+      }
+    },
+  };
+  Pad.set(Handler.basic);
+
   I.onTouch(function*(){
     let c = yield;
     while(c.force < 50) c = yield;
@@ -295,24 +376,16 @@ module.exports = o=>{
     selection = node;
     selectionParent = parent;
     selectionType = type;
-    Pad.setHandler(selection.op == Graph.Op.none ? "leaf" : type, selection);
+    if(selection.op == Graph.Op.none) Pad.set(Handler.leaf);
+    else Pad.set(Handler[type]);
     if(type == "node") {
-      const st = new Date();
-      const key = {};
-      selectionAction = key;
+      // parameter change
       while(true) {
         const cm = yield;
         if(cm.state == I.state.END) break;
       }
-      const du = (new Date() - st) / 1000;
-      if(du < 0.5 && selectionAction == key) {
-        // Open the node
-        if(selection.op == Graph.Op.rhythm) {
-          Keyboard.open(selection);
-        }
-        // TODO: revoke all touch/pads
-      }
-    } else {
+    } else if(type == "edge") {
+      // horizontal movement
       const nx = node.x - node.length;
       const nl = node.length;
       while(true) {
@@ -331,83 +404,8 @@ module.exports = o=>{
     node.grab = false;
     if(selection == node) {
       selection = null;
-      Pad.setHandler("basic");
+      Pad.set(Handler.basic);
     }
-  });
-  I.onPad(function*(k,v){
-    selectionAction = null;
-    padTarget[k] = v*0.5+0.5;
-    const h = Pad.handler(k);
-    if(h.name == "basic") {
-      if(h.i == 0) {
-        if(Graph.recording()) {
-          Graph.stop();
-          L.add("Stop");
-        } else {
-          Graph.record();
-          L.add("Record");
-        }
-        Pad.setHandler("basic");
-      } else if(h.i >= 8) {
-        const m = Graph.note(h.i-8);
-        m.attack(1, 0.001);
-        yield;
-        padTarget[k] = 0;
-        m.release(0.1);
-        return;
-      }
-    } else if(h.name == "edge") {
-      if(h.i == 0) {
-        Graph.insert(selectionParent, selection);
-        selection.grab = false;
-        selection = null;
-        Pad.setHandler("basic");
-      } else if(h.i == 1) {
-        Graph.remove(selectionParent, selection);
-        selection.grab = false;
-        selection = null;
-        Pad.setHandler("basic");
-      }
-    } else if(h.name == "leaf") {
-      if(h.i == 0) {
-        const gen = Graph[selection.type.name + "Gen"];
-        if(gen.length == 1) {
-          Graph.setOp(selection, gen[0].op);
-          selection.grab = false;
-          selection = null;
-          Pad.setHandler("basic");
-        } else {
-          Graph.replace(selection);
-          Pad.setHandler("create-" + selection.type.name);
-        }
-      }
-    } else if(h.name == "node") {
-      if(h.i >= 8) {
-        if(selection.op == Graph.Op.rhythm) {
-          const b = Graph.switchRhythm(h.i-8, selection);
-          if(b) L.add(`Register: #${h.i-8}`);
-          else L.add(`Release: #${h.i-8}`);
-          Pad.setHandler("node", selection);
-        }
-      }
-      // TODO: bypass (if available)
-    } else if(h.name.substr(0,7) == "create-") {
-      if(h.i < 8) {
-        const gen = h.name == "create-inst" ? Graph.instGen
-                  : h.name == "create-pattern" ? Graph.patternGen : Graph.soundGen;
-        if(h.i < gen.length) {
-          Graph.setOp(selection, gen[h.i].op);
-        } else {
-          Graph.revert(selection);
-        }
-        selection.grab = false;
-        selection = null;
-        Pad.setHandler("basic");
-      }
-    }
-    yield;
-    selectionAction = null;
-    padTarget[k] = 0;
   });
 
   L.add("Launched.");

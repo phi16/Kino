@@ -124,105 +124,32 @@ module.exports = (o,G)=>{
       });
     }
   };
-  G.instGen.forEach(g=>{
-    g.icon = Icons[g.icon];
-  });
-  G.patternGen.forEach(g=>{
-    g.icon = Icons[g.icon];
-  });
-  G.soundGen.forEach(g=>{
-    g.icon = Icons[g.icon];
-  });
 
   const padIcons = [];
   for(let i=0;i<16;i++) padIcons.push({ cur: Icons.none, prev: Icons.none, time: 0.5 });
-  function SetHandler(h){
-    padHandler = h;
+
+  const padHandler = Array(16);
+  padHandler.fill(function*(){});
+
+  const p = {};
+  p.set = h=>{
     for(let i=0;i<16;i++) {
-      const ni = h.icon(i);
+      let ni = Icons.none;
+      padHandler[i] = function*(){};
+      h(i,(n,a)=>{
+        ni = Icons[n];
+        padHandler[i] = a;
+      });
       if(ni == padIcons[i].cur) continue;
       if(padIcons[i].time > 0.5) padIcons[i].prev = padIcons[i].cur;
       padIcons[i].cur = ni;
       padIcons[i].time = 0;
     }
   };
-
-  let selection = null;
-  const Handler = {
-    basic: {
-      icon: i=>{
-        // For Debug
-        // const v = Object.keys(Icons);
-        // if(i < v.length) return Icons[v[i]];
-        if(i == 0) return G.recording() ? Icons.stop : Icons.record;
-        if(i >= 8) return G.rhythmNode(i-8) ? Icons.circle : Icons.none;
-        return Icons.none;
-      }
-    },
-    node: {
-      icon: i=>{
-        if(selection && selection.op == G.Op.rhythm) {
-          if(i >= 8) {
-            const r = G.rhythmNode(i-8);
-            if(r == selection) return Icons.occupied;
-            return r ? Icons.circle : Icons.empty;
-          }
-        }
-        if(i == 0) return Icons.bypass;
-        return Icons.none;
-      }
-    },
-    edge: {
-      icon: i=>{
-        if(i == 0) return Icons.inject;
-        if(i == 1) return Icons.delete;
-        return Icons.none;
-      }
-    },
-    leaf: {
-      icon: i=>{
-        if(i == 0) {
-          if(selection && selection.type == G.Ty.inst) return Icons.select;
-          return Icons.create;
-        }
-        return Icons.none;
-      }
-    },
-    "create-inst": {
-      icon: i=>{
-        if(i < G.instGen.length) return G.instGen[i].icon;
-        return Icons.none;
-      }
-    },
-    "create-pattern": {
-      icon: i=>{
-        if(i < G.patternGen.length) return G.patternGen[i].icon;
-        return Icons.none;
-      }
-    },
-    "create-sound": {
-      icon: i=>{
-        if(i < G.soundGen.length) return G.soundGen[i].icon;
-        return Icons.none;
-      }
-    }
-  };
-  Object.keys(Handler).forEach(h=>{
-    Handler[h].name = h;
-  });
-  let padHandler = Handler.basic;
-  SetHandler(padHandler);
-
-  const p = {};
-  p.setHandler = (n,s)=>{
-    selection = s; // may null
-    SetHandler(Handler[n]);
-  };
-  p.handler = k=>{
-    const i = Math.floor(k/2) + (k%2) * 8;
-    return { name: padHandler.name, i: i };
-  };
-  p.icon = (k,v)=>{
+  const padVisual = Array(16).fill(0), padTarget = Array(16).fill(0);
+  p.icon = k=>{
+    padVisual[k] += (padTarget[k] - padVisual[k]) / 2.0;
+    const v = padVisual[k];
     const i = Math.floor(k/2) + (k%2) * 8;
     let pt = padIcons[i].time;
     pt += 0.08;
@@ -240,5 +167,19 @@ module.exports = (o,G)=>{
       });
     }
   };
+  p.sizeAt = k=>{
+    return padVisual[k];
+  };
+
+  I.onPad(function*(k,v){
+    padTarget[k] = v*0.5+0.5;
+    const i = Math.floor(k/2) + (k%2) * 8;
+    const g = padHandler[i](v);
+    g.next();
+    yield;
+    g.next();
+    padTarget[k] = 0;
+  });
+
   return p;
 };
