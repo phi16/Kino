@@ -24,6 +24,25 @@ module.exports = (o,G)=>{
         R.X.lineTo(0,-0.9);
       });
     },
+    close: _=>{
+      return R.shape(_=>{
+        R.X.arc(0,0,0.8,0,Math.PI*2);
+        R.X.moveTo(0,-1.1);
+        R.X.lineTo(0,-0.8);
+        R.X.moveTo(0,0.8);
+        R.X.lineTo(0,1.1);
+      });
+    },
+    open: _=>{
+      return R.shape(_=>{
+        for(let i=0;i<4;i++) {
+          const x = Math.cos(i*2*Math.PI/4);
+          const y = Math.sin(i*2*Math.PI/4);
+          R.X.moveTo(x*0.6,y*0.6);
+          R.X.lineTo(x*1.1,y*1.1);
+        }
+      });
+    },
     bypass: _=>{
       return R.shape(_=>{
         const a = 0.5, b = Math.PI;
@@ -73,6 +92,13 @@ module.exports = (o,G)=>{
         R.X.moveTo(-0.8,0.8);
         R.X.lineTo(-0.8,0);
         R.X.arc(0,0,0.8,Math.PI,0);
+      });
+    },
+    fm: _=>{
+      return R.shape(_=>{
+        R.X.moveTo(-0.3,0.9);
+        R.X.arc(0.3,-0.3,0.6,Math.PI,Math.PI/2);
+        R.X.lineTo(-0.9,0.3);
       });
     },
     load: _=>{

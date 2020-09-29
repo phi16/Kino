@@ -115,6 +115,20 @@ const Drawing = X=>{
       else X.lineTo(x+dx*s,y+dy*s);
     }
   });
+  r.polyOutline = (x,y,s,n,a,v)=>shape(_=>{
+    X.beginPath();
+    for(let i=0;i<=n;i++) {
+      const dx = Math.cos((i/n+a)*Math.PI*2), dy = Math.sin((i/n+a)*Math.PI*2);
+      if(i == 0) X.moveTo(x+dx*s, y+dy*s);
+      else X.lineTo(x+dx*s,y+dy*s);
+    }
+    s *= v;
+    for(let i=n;i>-1;i--) {
+      const dx = Math.cos((i/n+a)*Math.PI*2), dy = Math.sin((i/n+a)*Math.PI*2);
+      if(i == n) X.moveTo(x+dx*s, y+dy*s);
+      else X.lineTo(x+dx*s,y+dy*s);
+    }
+  });
   r.circle = (x,y,r)=>shape(_=>{
     X.beginPath();
     X.arc(x,y,r,0,2*Math.PI,false);

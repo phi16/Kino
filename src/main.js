@@ -159,7 +159,7 @@ module.exports = o=>{
           });
         });
         R.translate(0, M.cell).with(_=>{
-          Keyboard.render();
+          Keyboard.render(dt);
         });
 
         // Input Overlay
@@ -248,10 +248,11 @@ module.exports = o=>{
           L.add("Record");
           Pad.set(Handler.basic);
         });
-      } else if(i >= 8) {
+      }
+      if(i >= 8) {
         if(Graph.rhythmNode(i-8)) cb("circle", function*(v) {
           const m = Graph.note(i-8);
-          m.attack(1, 0.001);
+          m.attack(v, 0.001);
           yield;
           m.release(0.1);
         });
@@ -290,22 +291,28 @@ module.exports = o=>{
     },
     node: (i,cb)=>{
       if(i == 0) cb("bypass", function*() {
-        // TODO
+      });
+      if(selection.op != Graph.Op.rhythm) return;
+      if(i == 1) cb("open", function*() {
+        Keyboard.open(selection);
+        const b = Graph.switchRhythm("K", selection);
+        // b == true
+        selection = null;
+        Pad.set(Handler.keyboard);
       });
       if(i < 8) return;
-      if(selection.op != Graph.Op.rhythm) return;
       const r = Graph.rhythmNode(i-8);
       const icon = r == selection ? "occupied" : r ? "circle" : "empty";
       cb(icon, function*() {
-        const b = Graph.switchRhythm(i-8, selection);o
+        const b = Graph.switchRhythm(i-8, selection);
         if(b) L.add(`Register: #${i-8}`);
         else L.add(`Release: #${i-8}`);
         Pad.set(Handler.node);
       });
     },
-    create: n=>(i,cb)=>{
+    create: ty=>(i,cb)=>{
       if(i >= 8) return;
-      const gen = Graph[n + "Gen"];
+      const gen = Graph[ty + "Gen"];
       if(i < gen.length) {
         const g = gen[i];
         cb(g.icon, function*() {
@@ -316,10 +323,32 @@ module.exports = o=>{
         });
       }
     },
+    keyboard: (i,cb)=>{
+      if(i == 0) {
+        if(Graph.recording()) cb("stop", function*() {
+          Graph.stop();
+          L.add("Stop");
+          Pad.set(Handler.keyboard);
+        }); else cb("record", function*() {
+          Graph.record();
+          L.add("Record");
+          Pad.set(Handler.keyboard);
+        });
+      }
+      if(i == 1 && !Graph.recording()) cb("close", function*() {
+        const b = Graph.switchRhythm("K", null);
+        // b == false
+        Keyboard.close();
+        Pad.set(Handler.basic);
+      });
+      if(i < 8) return;
+      // TODO: sequencer
+    }
   };
   Pad.set(Handler.basic);
 
   I.onTouch(function*(){
+    if(Graph.recording() || Keyboard.active()) return;
     let c = yield;
     while(c.force < 50) c = yield;
     const cx = (c.x-scroll.mx) * M.touchScale;

@@ -77,9 +77,10 @@ module.exports = o=>{
   });
   const Op = {
     none: {   r: 0,     arity: [],                    type: Ty.any,     layout: Layout.default },
-    some: {   r: 0.25,  arity: [],                    type: Ty.any,     layout: Layout.default },
+    some: {   r: 0,     arity: [],                    type: Ty.any,     layout: Layout.default },
     sample: { r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
     sine: {   r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
+    fm: {     r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
     rhythm: { r: 0.25,  arity: [],                    type: Ty.pattern, layout: Layout.default },
     play: {   r: 0.375, arity: [Ty.inst, Ty.pattern], type: Ty.sound,   layout: Layout.side },
     merge: {  r: 0,     arity: [Ty.any, Ty.any],      type: Ty.any,     layout: Layout.merge },
@@ -142,13 +143,20 @@ module.exports = o=>{
             const g = S.X.createGain();
             u.connect(g).connect(o);
             waitingNode = g;
+            g.gain.value = 0;
+            nt.e.forEach(e=>{
+              g.gain.setTargetAtTime(e.v, nt.t + e.t, e.e);
+            });
+            const delay = nt.t - S.X.currentTime;
+            const lastEnv = nt.e[nt.e.length-1];
+            const duration = lastEnv.t + lastEnv.e * 10;
             setTimeout(_=>{
               g.disconnect();
-            },1000); // TODO
+            },1000*(delay+duration));
             lastTime = nt.t + 0.001;
             setTimeout(_=>{
               cb(1.0);
-            },1000*(nt.t-S.X.currentTime));
+            },1000*delay);
           }
         }
       },
@@ -190,10 +198,10 @@ module.exports = o=>{
   let estimator = null;
 
   const rhythmNodes = {};
-  function rhythmNote(i) {
+  function rhythmNote(i, f) {
     if(!rhythmNodes[i]) return { attack: _=>_, release: _=>_ };
     if(recording && estimator && i == 0) estimator.next(S.X.currentTime);
-    return rhythmNodes[i].func.note();
+    return rhythmNodes[i].func.note(f);
   }
 
   function NodeManager(n) {
@@ -232,6 +240,7 @@ module.exports = o=>{
       eval: _=>_,
       val: (f,t)=>{
         const ss = S.X.createBufferSource();
+        ss.playbackRate.value = f / 440; // TODO
         ss.buffer = b;
         ss.start(t);
         return ss;
@@ -245,12 +254,25 @@ module.exports = o=>{
         const o = S.X.createOscillator();
         o.frequency.value = f;
         o.start(t);
-        const g = S.X.createGain();
-        g.gain.value = 0;
-        g.gain.setTargetAtTime(1, t, 0.001);
-        g.gain.setTargetAtTime(0, t+0.1, 0.1);
-        o.connect(g);
-        return g;
+        return o;
+      }
+    };
+  };
+  Op.fm.func = n=>{
+    return {
+      eval: _=>_,
+      val: (f,t)=>{
+        const osc = S.X.createOscillator();
+        const og = S.X.createGain();
+        const osc2 = S.X.createOscillator();
+        osc.frequency.value = f*4;
+        og.gain.value = f;
+        osc2.frequency.value = f;
+        osc.connect(og);
+        osc.start(t);
+        og.connect(osc2.frequency);
+        osc2.start(t);
+        return osc2;
       }
     };
   };
@@ -262,12 +284,13 @@ module.exports = o=>{
     return {
       eval: _=>_,
       dur: _=>scheduleDur,
-      note: _=>{
+      note: f=>{
+        const freq = f || 440; // TODO
         let g = null;
         let curVal = 0, curExp = 1, curState = "wait";
         const envelope = [];
         const u = {
-          f: 440*Math.pow(2/3,Math.floor(Math.random()*5)),
+          f: freq,
           attack: (v,e)=>{
             const t = S.X.currentTime;
             if(g) g.gain.setTargetAtTime(v, t, e);
@@ -280,9 +303,10 @@ module.exports = o=>{
             if(g) g.gain.setTargetAtTime(0, t, e);
             else curState = "done";
             envelope.push({ t, v: 0, e });
+            const duration = e * 10;
             setTimeout(_=>{
               if(g) g.disconnect();
-            }, 1000); // TODO
+            }, 1000*duration);
           }
         };
         u.consume = gn=>{
@@ -293,7 +317,7 @@ module.exports = o=>{
           if(i >= 0) q.splice(i,1);
         };
         q.push(u);
-        if(recording) recordedNotes.push({ envelope });
+        if(recording) recordedNotes.push({ f: freq, envelope });
         return u;
       },
       record: _=>{
@@ -321,14 +345,16 @@ module.exports = o=>{
         }
         for(let rn of recordedNotes) {
           if(rn.envelope.length == 0) return;
+          const f = rn.f;
           const st = rn.envelope[0].t;
           const e = [];
           for(let r of rn.envelope) {
             e.push({ t: r.t - st, v: r.v, e: r.e });
           }
+          // TODO: optimize e
           const t = Math.round((st - firstBeat) * (bpm / 60) * 4) / 4 % scheduleDur;
           // TODO: insert to correct position
-          schedule.push({ t, e });
+          schedule.push({ t, f, e });
         }
         recordedNotes = [];
       },
@@ -356,7 +382,12 @@ module.exports = o=>{
               }
             }
           }
-          return { t: firstBeat + (st + nextEvent.t) / (bpm / 60), f: 880*Math.pow(2/3,Math.floor(Math.random()*5)) };
+          // TODO: same time
+          return {
+            t: firstBeat + (st + nextEvent.t) / (bpm / 60),
+            f: nextEvent.f,
+            e: nextEvent.e
+          };
         }
         return null;
       }
@@ -585,7 +616,7 @@ module.exports = o=>{
       }
     }
     function recur(n) {
-      if(n.func.remove) n.func.remove();
+      if(n.func && n.func.remove) n.func.remove();
       Object.keys(rhythmNodes).forEach(k=>{
         if(rhythmNodes[k] == n) delete rhythmNodes[k];
       });
@@ -631,6 +662,9 @@ module.exports = o=>{
     op: Op.sine,
     icon: "sine"
   },{
+    op: Op.fm,
+    icon: "fm"
+  },{
     op: Op.sample,
     icon: "load"
   }];
@@ -644,7 +678,7 @@ module.exports = o=>{
   }];
 
   g.switchRhythm = (i,n)=>{
-    if(rhythmNodes[i] === n) {
+    if(n == null || rhythmNodes[i] === n) {
       delete rhythmNodes[i];
       return false;
     }
@@ -652,9 +686,9 @@ module.exports = o=>{
     return true;
   };
   g.recording = _=>recording;
-  g.note = i=>{
+  g.note = (i,f)=>{
     if(recording && !recordFirst) recordFirst = S.X.currentTime;
-    return rhythmNote(i);
+    return rhythmNote(i, f);
   };
   g.rhythmNode = i=>{
     return rhythmNodes[i];

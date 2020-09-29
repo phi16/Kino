@@ -31,33 +31,24 @@ module.exports = (o,G)=>{
   }
 
   I.onTouch(function*(){
+    if(n == null) return;
     let c = yield;
     while(c.force < 20) c = yield;
     let panel = panelAt(c);
+    function vel() {
+      return Math.max(0,c.force-20)*0.02;
+    }
     while(true) {
       const freq = panel.f;
-      const g = S.node();
-      g.gain.value = 0;
-      const osc = S.X.createOscillator();
-      const og = S.X.createGain();
-      const osc2 = S.X.createOscillator();
-      const sg = S.X.createGain();
-      osc.frequency.value = freq*4;
-      og.gain.value = freq;
-      osc2.frequency.value = freq;
-      osc.connect(og);
-      osc.start();
-      og.connect(osc2.frequency);
-      osc2.connect(sg);
-      sg.gain.value = 0.1;
-      sg.connect(g);
-      osc2.start();
+      const m = G.note("K", freq);
 
       const key = Math.random();
-      const touch = { i: panel.i, j: panel.j, g, m: 1 };
+      const touch = { i: panel.i, j: panel.j, vel: 0, v: 1, mv: 0 };
       touchPanels[key] = touch;
-
       const cp = (panel.p%12+12)%12;
+
+      touch.vel = vel();
+      m.attack(touch.vel, 0.01);
       touchCount[cp]++;
       while((c=yield).state == I.state.MOVE) {
         let newPanel = panelAt(c);
@@ -65,24 +56,38 @@ module.exports = (o,G)=>{
           panel = newPanel;
           break;
         }
-        g.gain.setTargetAtTime(Math.max(0,c.force-20)*0.02, S.X.currentTime+0.001, 0.01);
+        touch.vel = vel();
+        m.attack(touch.vel, 0.01);
       }
       touchCount[cp]--;
+      m.release(0.1);
+      touch.v = 0;
 
-      g.gain.setTargetAtTime(0, S.X.currentTime+0.001, 0.1);
       setTimeout(_=>{
-        g.disconnect();
         delete touchPanels[key];
       },1000);
       if(c.state == I.state.END) break;
     }
   });
 
+  let displayTime = 10000;
   return {
+    active: _=>{
+      return n != null;
+    },
+    target: _=>{
+      return n;
+    },
     open: sel=>{
       n = sel;
+      displayTime = 0;
     },
-    render: _=>{
+    close: _=>{
+      n = null;
+      displayTime = 0;
+    },
+    render: dt=>{
+      displayTime += dt;
       for(let i=0;i<touchCount.length;i++) {
         if(touchCount[i] > 0) touchBright[i] += (1 - touchBright[i]) / 4.0;
         else touchBright[i] += (0 - touchBright[i]) / 4.0;
@@ -92,6 +97,11 @@ module.exports = (o,G)=>{
         R.alpha(0.5,_=>{
           R.rect(0,0,I.width,I.height).fill(0,0,0);
         });
+        function shapeDist(x,y) {
+          let d = Math.sqrt(x*x+y*y);
+          d = Math.exp(-Math.max(0, displayTime*16-d*0.5));
+          return n ? 1 - d : d;
+        }
         R.blend("lighter",_=>{
           R.translate(I.width/2,I.height/2).with(_=>{
             for(let i=-5;i<6;i++) {
@@ -102,19 +112,19 @@ module.exports = (o,G)=>{
                 const center = Math.abs(y) < 3;
                 const p = i*6 + (i%2 == 0 ? 1 : 0) - j*2 - 8;
                 const cp = (p%12+12)%12;
-                R.poly(x*s,y*s,0.9*s,6,0).fill(1,0, (center?0.1:0.05) + touchBright[cp]*0.1);
+                R.poly(x*s,y*s,0.9*s*shapeDist(x,y),6,0).fill(1,0, (center?0.1:0.05) + touchBright[cp]*0.1);
               }
             }
             Object.keys(touchPanels).forEach(k=>{
               const t = touchPanels[k];
-              const i = t.i, j = t.j, v = t.g.gain.value;
-              t.m *= 0.9;
+              t.mv += (t.v - t.mv) / 4.0;
+              const i = t.i, j = t.j, v = t.mv;
               const x = i*1.5;
               const shift = i%2 == 0 ? 0 : 0.5;
               const y = (shift+j)*Math.sqrt(3);
               const center = Math.abs(y) < 3;
-              const scale = 0.7*(1-Math.exp(-v/8)) * (1-t.m) + 0.9 * t.m;
-              R.poly(x*s,y*s,scale*s,6,0).fill(1,0,0.1*(1-t.m));
+              const scale = 1 - t.mv * (0.3 - Math.exp(-t.vel*0.2) * 0.15);
+              R.polyOutline(x*s,y*s,0.9*s*shapeDist(x,y),6,0,scale).fill(1,0,0.1*t.mv);
             });
           });
         });
