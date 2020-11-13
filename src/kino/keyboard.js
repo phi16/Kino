@@ -1,4 +1,4 @@
-module.exports = (o,G)=>{
+module.exports = (o)=>{
   const R = o.render;
   const I = o.input;
   const L = o.log;
@@ -30,6 +30,27 @@ module.exports = (o,G)=>{
     return { i, j, p, f: 440*Math.pow(2, p/12) };
   }
 
+  const outNode = S.node();
+  function note(f) {
+    const osc = S.X.createOscillator();
+    osc.frequency.value = f;
+    osc.start();
+    const g = S.X.createGain();
+    g.gain.value = 0;
+    osc.connect(g).connect(outNode);
+    return {
+      attack: (v,d)=>{
+        g.gain.setTargetAtTime(v, S.X.currentTime, d);
+      },
+      release: (d)=>{
+        g.gain.setTargetAtTime(0, S.X.currentTime, d);
+        setTimeout(_=>{
+          g.disconnect();
+        },1000);
+      }
+    }
+  }
+
   I.onTouch(function*(){
     if(n == null) return;
     let c = yield;
@@ -40,7 +61,7 @@ module.exports = (o,G)=>{
     }
     while(true) {
       const freq = panel.f;
-      const m = G.note("K", freq);
+      const m = note(freq);
 
       const key = Math.random();
       const touch = { i: panel.i, j: panel.j, vel: 0, v: 1, mv: 0 };
