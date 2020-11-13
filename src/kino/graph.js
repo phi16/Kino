@@ -81,6 +81,7 @@ module.exports = o=>{
     sample: { r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
     sine: {   r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
     fm: {     r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
+    key: {    r: 0.25,  arity: [],                    type: Ty.inst,    layout: Layout.default },
     rhythm: { r: 0.25,  arity: [],                    type: Ty.pattern, layout: Layout.default },
     play: {   r: 0.375, arity: [Ty.inst, Ty.pattern], type: Ty.sound,   layout: Layout.side },
     merge: {  r: 0,     arity: [Ty.any, Ty.any],      type: Ty.any,     layout: Layout.merge },
@@ -273,6 +274,38 @@ module.exports = o=>{
         og.connect(osc2.frequency);
         osc2.start(t);
         return osc2;
+      }
+    };
+  };
+  Op.key.func = n=>{
+    return {
+      eval: _=>_,
+      val: (f,t)=>{
+        // f *= Math.pow(2, -2/12);
+        const osc = S.X.createOscillator();
+        const og = S.X.createGain();
+        const osc2 = S.X.createOscillator();
+        osc.frequency.value = f*4;
+        og.gain.value = f;
+        og.gain.setTargetAtTime(0, t+0.01, 0.05);
+        osc2.frequency.value = f;
+        osc.connect(og);
+        osc.start(t);
+        og.connect(osc2.frequency);
+        osc2.start(t);
+        const g1 = S.X.createGain();
+        g1.gain.value = 1;
+        g1.gain.setTargetAtTime(0, t+0.01, 0.05);
+        const g2 = S.X.createGain();
+        g2.gain.value = 1;
+        g2.gain.setTargetAtTime(0.02, t+0.01, 0.2);
+        const g3 = S.X.createGain();
+        osc2.connect(g1);
+        osc2.connect(g2);
+        g1.connect(g3);
+        g2.connect(g3);
+        g3.gain.value = 0.05;
+        return g3;
       }
     };
   };
@@ -664,6 +697,9 @@ module.exports = o=>{
   },{
     op: Op.fm,
     icon: "fm"
+  },{
+    op: Op.key,
+    icon: "circle"
   },{
     op: Op.sample,
     icon: "load"
