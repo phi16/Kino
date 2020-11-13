@@ -5,23 +5,16 @@ module.exports = o=>{
   const L = o.log;
   const S = o.sound;
 
-  let scroll = {
-    grab: null,
-    x: 0, y: 0,
-    mx: 0, my: 0
-  };
-  let selection = null, selectionParent = null;
-  let selectionType = null;
-
   const Keyboard = require('./kino/keyboard.js')(o);
   Keyboard.open(1);
+  const Synth = require('./kino/synth.js')(o);
 
   const M = {
     pad: 0,
-    frame: 5,
+    frame: 1,
     multScale: 20,
   };
-  M.rect = 0;
+  M.rect = 0; // (I.width-M.pad*7)/8;
   M.cell = M.rect+M.pad;
   M.mainW = I.width + M.frame*2;
   M.mainH = I.height + (M.pad+M.rect+M.frame)*2;
@@ -57,7 +50,7 @@ module.exports = o=>{
               p = 1 - Math.exp(-c.force*0.002);
               R.ellipse(c.x, c.y, c.minor_axis*p, c.major_axis*p, c.orientation*Math.PI/180).stroke(1,0,0.2,0.5);
             }
-            R.rect(0, 0, I.width, I.height).stroke(1,0,0.3,0.5);
+            R.rect(0, 0, I.width, I.height).stroke(1,0,0.1,0.5);
           });
         });
       });

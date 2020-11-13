@@ -9,7 +9,7 @@ module.exports = (o)=>{
   const touchCount = Array(12), touchBright = Array(12);
   touchCount.fill(0), touchBright.fill(0);
   const touchPanels = {};
-  const panelScale = 15;
+  const panelScale = 12.5;
   function panelAt(c) {
     const lx = (c.x - I.width/2) / panelScale;
     const ly = (c.y - I.height/2) / panelScale;
@@ -53,11 +53,12 @@ module.exports = (o)=>{
 
   I.onTouch(function*(){
     if(n == null) return;
+    return;
     let c = yield;
     while(c.force < 20) c = yield;
     let panel = panelAt(c);
     function vel() {
-      return Math.max(0,c.force-20)*0.02;
+      return Math.pow(Math.max(0,c.force-20)*0.0015, 2);
     }
     while(true) {
       const freq = panel.f;
@@ -126,7 +127,7 @@ module.exports = (o)=>{
         R.blend("lighter",_=>{
           R.translate(I.width/2,I.height/2).with(_=>{
             for(let i=-5;i<6;i++) {
-              for(let j=-3;j<3;j++) {
+              for(let j=-3;j<4;j++) {
                 const x = i*1.5;
                 const shift = i%2 == 0 ? 0 : 0.5;
                 const y = (shift+j)*Math.sqrt(3);

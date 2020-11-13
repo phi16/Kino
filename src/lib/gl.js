@@ -296,12 +296,8 @@ module.exports = (gl,front)=>{
 
   // Data Buffer
 
-  const maxElements = 32;
-  const frameCount = 1024;
-  const DataBuffer = _=>{
+  const DataBuffer = (w,h)=>{
     const textureIndex = lastTexture++;
-    const d = 2; // per element
-    const w = d * maxElements, h = frameCount;
 
     const rb = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
@@ -344,11 +340,18 @@ module.exports = (gl,front)=>{
         gl.activeTexture(gl.TEXTURE0 + textureIndex);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         return { texture: textureIndex };
+      },
+      pixels: hi=>{
+        const b = new Float32Array(w*hi*4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.readPixels(0, 0, w, hi, gl.RGBA, gl.FLOAT, b);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return b;
       }
     };
   };
-  const DataLoopBuffer = _=>{
-    const buffers = [DataBuffer(), DataBuffer()];
+  const DataLoopBuffer = (w,h)=>{
+    const buffers = [DataBuffer(w,h), DataBuffer(w,h)];
     return {
       render: e=>{
         const target = buffers.pop();
@@ -357,9 +360,13 @@ module.exports = (gl,front)=>{
       },
       use: _=>{
         return buffers[0].use();
+      },
+      pixels: hi=>{
+        return buffers[0].pixels(hi);
       }
     };
   };
+  o.DataLoopBuffer = DataLoopBuffer;
 
   const library = `
   uniform vec2 resolution;
@@ -502,6 +509,103 @@ module.exports = (gl,front)=>{
     gl_FragColor = vec4(col,1);
   }
   `,rect,["texture","overlay"]);
+
+  o.granular = buildMaterial(`
+  attribute vec2 vertex;
+  varying vec2 coord;
+  void main() {
+      coord = vertex;
+      gl_Position = vec4(vertex,0,1);
+  }
+  `,`
+  #define tau (2.*3.1415926535)
+  #define sampleRate 48000.
+  varying vec2 coord;
+  uniform sampler2D texture;
+  uniform vec2 offset;
+  uniform float samples;
+  uniform float frequency;
+  uniform float window;
+  float rand(vec2 co){
+    return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+  }
+  float noise0(float t, float s) {
+    float r = floor(t);
+    float f = fract(t);
+    f = smoothstep(0., 1., f);
+    float u0 = rand(vec2(r+0.,s)) - 0.5;
+    float u1 = rand(vec2(r+1.,s)) - 0.5;
+    return mix(u0, u1, f);
+  }
+  float inst0(float f, float t, float m, float o) {
+    float rep = 1./f;
+    float fac = mod(t,rep);
+    float mult = m;
+    float offset = t*o;
+    return mix(
+      noise0(fac*mult + offset, 1.),
+      noise0((fac+rep)*mult + offset, 1.),
+      smoothstep(0.,1.,1.-fac/rep));
+  }
+  float wave(float t) {
+    return inst0(40.*4., t/4., 1000., 100.);
+  }
+  vec4 grain(vec4 p, vec4 q, vec4 t) {
+    // p: Offset, Duration, PlayOffset, PlayDuration
+    // q: Volume, WindowWidthRatio, 0, 0
+    if(p.w == 0.) return vec4(0.);
+    vec4 r = (t - p.z) / p.w;
+    vec4 u = abs(r - 0.5);
+    vec4 w = smoothstep(0., 0.5*q.y, 0.5-u);
+    vec4 tt = p.x + p.y*r;
+    return vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w)) * q.x * w;
+  }
+  void gen(float t, float d, float ch, inout vec4 p, inout vec4 q) {
+    float dur = samples / sampleRate;
+    p = vec4(mix(offset.x, offset.y, t/dur) + ch, 0.1, t, d);
+    q = vec4(1., window, 0., 0.);
+  }
+  void main() {
+    float dur = samples / sampleRate;
+    float res = samples/4.;
+    float paramLoc = fract((coord.y*0.5+0.5)*2.)/2.+.5;
+    vec4 p0 = texture2D(texture, vec2(0.5/res, paramLoc));
+    vec4 q0 = texture2D(texture, vec2(1.5/res, paramLoc));
+    vec4 p1 = texture2D(texture, vec2(2.5/res, paramLoc));
+    vec4 q1 = texture2D(texture, vec2(3.5/res, paramLoc));
+    float t = (coord.x*0.5+0.5) * dur;
+    if(coord.y > 0.) t = dur;
+    float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
+    float ch = paramLoc*100.;
+    if(startTime < t) {
+      float grainDur = 1.0/frequency;
+      float singleDur = mix(1.0, 0.5, window) * grainDur;
+      if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
+      float i = floor((t-startTime) / singleDur);
+      gen(startTime+i*singleDur, grainDur, ch, p0, q0);
+      if(i > 0.5) {
+        i--;
+        p1 = p0, q1 = q0;
+        gen(startTime+i*singleDur, grainDur, ch, p0, q0);
+      }
+    }
+    if(coord.y < 0.) {
+      float dt = 1. / sampleRate;
+      vec4 ts = t + vec4(0,1,2,3) * dt;
+      vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
+      gl_FragColor = v*0.5;
+    } else {
+      int x = int((coord.x*0.5+0.5)*res);
+      vec4 v = vec4(0);
+      p0.z -= dur, p1.z -= dur;
+      if(x == 0) v = p0;
+      if(x == 1) v = q0;
+      if(x == 2) v = p1;
+      if(x == 3) v = q1;
+      gl_FragColor = v;
+    }
+  }
+  `,rect,["samples","texture","frequency","window","offset"]);
 
   return o;
 };

@@ -104,7 +104,7 @@ navigator.requestMIDIAccess({sysex: true}).then(midi=>{
     }
   }
   if(!found) {
-    errorHandler("NanoPAD2 not found.");
+    // errorHandler("NanoPAD2 not found.");
     emu.nanoPad(e=>{
       padInput(e.data);
     });

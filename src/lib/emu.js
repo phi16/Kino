@@ -36,7 +36,7 @@ module.exports = {
           state = "move";
           f(0x1); // START
         } else if(state == "move") {
-          force += (100 - force) / 4.0;
+          force += (500 - force) / 4.0;
           f(0x2); // MOVE
         } else if(state == "end") {
           f(0x3); // END
