@@ -24,6 +24,11 @@ module.exports = (o)=>{
     });
   }
 
+  const loopBuffers = [];
+  for(let i=0;i<10;i++) {
+    loopBuffers.push(G.DataLoopBuffer(samples/4, 4));
+  }
+
   let lastX = 0.;
   I.onTouch(function*(){
     while(true) {
@@ -32,9 +37,20 @@ module.exports = (o)=>{
     }
   });
 
-  function create() {
+  function createSynth(f) {
+    if(loopBuffers.length == 0) {
+      console.log("Acquire failed");
+      return {
+        node: S.X.createGain(),
+        disconnect: _=>_
+      };
+    }
+    const loopBuffer = loopBuffers.pop();
     const n = S.X.createScriptProcessor(samples, 0, 2);
-    const loopBuffer = G.DataLoopBuffer(samples/4, 4);
+    loopBuffer.render(_=>{
+      G.color.color(0,0,0,0);
+      G.color();
+    });
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
@@ -42,7 +58,7 @@ module.exports = (o)=>{
         G.granular.offset(lastX);
         G.granular.offsetRandom(0.5);
         G.granular.grainDur(1.0);
-        G.granular.playbackRate(1.0);
+        G.granular.playbackRate(f/440);
         G.granular.audio(audioBuffer.use());
         G.granular();
       });
@@ -58,9 +74,15 @@ module.exports = (o)=>{
     const hpf = S.X.createBiquadFilter();
     hpf.type = "highpass";
     hpf.frequency.value = 20.0;
-    n.connect(lpf).connect(hpf).connect(out);
-  }
-  create();
+    n.connect(lpf).connect(hpf);
 
-  return { audioBuffer };
+    return {
+      node: hpf,
+      disconnect: _=>{
+        loopBuffers.push(loopBuffer);
+      }
+    }
+  }
+
+  return { audioBuffer, node: createSynth };
 };

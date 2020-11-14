@@ -5,9 +5,9 @@ module.exports = o=>{
   const L = o.log;
   const S = o.sound;
 
-  const Keyboard = require('./kino/keyboard.js')(o);
-  Keyboard.open(1);
   const Synth = require('./kino/synth.js')(o);
+  const Keyboard = require('./kino/keyboard.js')(o, Synth);
+  Keyboard.open(1);
 
   const M = {
     pad: 0,
@@ -84,7 +84,7 @@ module.exports = o=>{
         G.clone();
       });
       bloomBuffer.render(_=>{
-        G.color.color(0,0,0);
+        G.color.color(0,0,0,1);
         G.color();
       });
       for(let i=0;i<8;i++) {

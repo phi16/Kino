@@ -1,4 +1,4 @@
-module.exports = (o)=>{
+module.exports = (o, Synth)=>{
   const R = o.render;
   const I = o.input;
   const L = o.log;
@@ -33,12 +33,10 @@ module.exports = (o)=>{
 
   const outNode = S.node();
   function note(f) {
-    const osc = S.X.createOscillator();
-    osc.frequency.value = f;
-    osc.start();
+    const synth = Synth.node(f);
     const g = S.X.createGain();
     g.gain.value = 0;
-    osc.connect(g).connect(outNode);
+    synth.node.connect(g).connect(outNode);
     return {
       attack: (v,d)=>{
         g.gain.setTargetAtTime(v, S.X.currentTime, d);
@@ -46,6 +44,7 @@ module.exports = (o)=>{
       release: (d)=>{
         g.gain.setTargetAtTime(0, S.X.currentTime, d);
         setTimeout(_=>{
+          synth.disconnect();
           g.disconnect();
         },1000);
       }
