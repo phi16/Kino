@@ -564,7 +564,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    return sampleAudio(t, 0, 0);
+    return sampleAudio(t, 4, 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -581,9 +581,9 @@ module.exports = (gl,front)=>{
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(gi*2 + ch), t);
     float rate = playbackRate;
-    if(rand(vec2(t,ch)) < 0.2) rate *= 1.5;
-    p = vec4(offset + rand(seed)*offsetRandom, d*rate, t, d);
-    q = vec4(1., window, 0., 0.);
+    if(rand(vec2(gi,ch)) < 0.5) rate *= 1.5;
+    p = vec4(offset + t + rand(seed)*offsetRandom, d*rate, t, d);
+    q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }
   void main() {
     float dur = samples / sampleRate;
@@ -591,15 +591,18 @@ module.exports = (gl,front)=>{
     int x = int((coord.x*0.5+0.5)*res);
     int y = int((coord.y*0.5+0.5)*4.);
     int ch = y%2;
-    int grains = 4;
+    float t = (coord.x*0.5+0.5) * dur;
+    float dt = 1. / sampleRate;
+    vec4 ts = t + vec4(0,1,2,3) * dt;
     vec4 result = vec4(0.);
+
+    int grains = 4;
     for(int g=0;g<grains;g++) {
       ivec2 dataOffset = ivec2(g*4, ch+2);
       vec4 p0 = texelFetch(tex, dataOffset + ivec2(0, 0), 0);
       vec4 q0 = texelFetch(tex, dataOffset + ivec2(1, 0), 0);
       vec4 p1 = texelFetch(tex, dataOffset + ivec2(2, 0), 0);
       vec4 q1 = texelFetch(tex, dataOffset + ivec2(3, 0), 0);
-      float t = (coord.x*0.5+0.5) * dur;
       if(coord.y > 0.) t = dur;
       float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y); // should be positive
       startTime += rand(vec2(g,ch))*grainDur/8.; // randomize phase
@@ -615,19 +618,15 @@ module.exports = (gl,front)=>{
         }
       }
       if(coord.y < 0.) {
-        float dt = 1. / sampleRate;
-        vec4 ts = t + vec4(0,1,2,3) * dt;
         vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
         result += v*2.;
       } else if(x/4 == g) {
-        vec4 v = vec4(0);
         p0.z -= dur, p1.z -= dur;
         int xi = x%4;
-        if(xi == 0) v = p0;
-        if(xi == 1) v = q0;
-        if(xi == 2) v = p1;
-        if(xi == 3) v = q1;
-        result = v;
+        if(xi == 0) result = p0;
+        if(xi == 1) result = q0;
+        if(xi == 2) result = p1;
+        if(xi == 3) result = q1;
       }
     }
     fragColor = coord.y < 0. ? result / float(grains) : result;

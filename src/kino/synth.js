@@ -5,18 +5,19 @@ module.exports = (o)=>{
   const out = S.node();
   const samples = 2048;
 
+  const amebient = "";
   const raws = [
-    "/Oneshot/bell_a.wav",
-    "/Oneshot/drop.wav",
-    "/Oneshot/drumcan_f.wav",
-    "/Oneshot/dish_2.wav",
-    "/SE/draft_normal.wav",
-    "/SE/thunder_normal.wav"
+    "AmebientSamplePack/Oneshot/bell_a.wav",
+    "AmebientSamplePack/SE/draft_normal.wav",
+    "AmebientSamplePack/SE/thunder_normal.wav",
+    "TA_MK_STAB_9_A.wav",
+    "BKAYE_brass_pad_G.wav",
+    "noise.wav"
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
     let j = i;
-    S.load("sound/AmebientSamplePack" + raws[j]).then(b=>{
+    S.load("sound/" + raws[j]).then(b=>{
       audioBuffer.set(j*128+0,  b.getChannelData(0));
       audioBuffer.set(j*128+64, b.getChannelData(1));
     });
@@ -39,7 +40,7 @@ module.exports = (o)=>{
         G.granular.samples(samples);
         G.granular.offset(lastX);
         G.granular.offsetRandom(0.5);
-        G.granular.grainDur(1.0);
+        G.granular.grainDur(Math.random() < 0.5 ? 1.0 : 0.5);
         G.granular.playbackRate(1.);
         G.granular.audio(audioBuffer.use());
         G.granular();
