@@ -543,29 +543,13 @@ module.exports = (gl,front)=>{
   uniform float samples;
   uniform float grainDur;
   uniform float offset;
-  uniform vec2 random;
+  uniform float offsetRandom;
+  uniform float playbackRate;
+  uniform vec2 randoms;
   uniform sampler2D audio;
   out vec4 fragColor;
   float rand(vec2 co){
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
-  }
-  float noise0(float t, float s) {
-    float r = floor(t);
-    float f = fract(t);
-    f = smoothstep(0., 1., f);
-    float u0 = rand(vec2(r+0.,s)) - 0.5;
-    float u1 = rand(vec2(r+1.,s)) - 0.5;
-    return mix(u0, u1, f);
-  }
-  float inst0(float f, float t, float m, float o) {
-    float rep = 1./f;
-    float fac = mod(t,rep);
-    float mult = m;
-    float offset = t*o;
-    return mix(
-      noise0(fac*mult + offset, 1.),
-      noise0((fac+rep)*mult + offset, 1.),
-      smoothstep(0.,1.,1.-fac/rep));
   }
   float sampleAudio(float t, int i, int ch) {
     float s = t * sampleRate;
@@ -580,11 +564,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    float v = 0.;
-    // v += inst0(50.*4., t/4., 1000., 100.);
-    // v += noise0(t*250., 1.);
-    v += sampleAudio(t, 0, 0);
-    return v;
+    return sampleAudio(t, 0, 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -597,9 +577,10 @@ module.exports = (gl,front)=>{
     vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
     return waves * q.x * w;
   }
-  void gen(float t, float d, int ch, inout vec4 p, inout vec4 q) {
+  void gen(float t, float d, int gi, int ch, inout vec4 p, inout vec4 q) {
     float dur = samples / sampleRate;
-    p = vec4(offset + rand(vec2(random[ch], t))*0.5, d*1.0, t, d);
+    vec2 seed = vec2(float(gi), t);
+    p = vec4(offset + rand(seed)*offsetRandom, d*playbackRate, t, d);
     q = vec4(1., window, 0., 0.);
   }
   void main() {
@@ -608,41 +589,48 @@ module.exports = (gl,front)=>{
     int x = int((coord.x*0.5+0.5)*res);
     int y = int((coord.y*0.5+0.5)*4.);
     int ch = y%2;
-
-    vec4 p0 = texelFetch(tex, ivec2(0, ch+2), 0);
-    vec4 q0 = texelFetch(tex, ivec2(1, ch+2), 0);
-    vec4 p1 = texelFetch(tex, ivec2(2, ch+2), 0);
-    vec4 q1 = texelFetch(tex, ivec2(3, ch+2), 0);
-    float t = (coord.x*0.5+0.5) * dur;
-    if(coord.y > 0.) t = dur;
-    float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y); // should be positive
-    if(startTime < t) {
-      float singleDur = mix(1.0, 0.5, window) * grainDur;
-      if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
-      float i = floor((t-startTime) / singleDur);
-      p0 = p1, q0 = q1;
-      gen(startTime+i*singleDur, grainDur, ch, p1, q1);
-      if(i > 0.5) {
-        i--;
-        gen(startTime+i*singleDur, grainDur, ch, p0, q0);
+    int grains = 4;
+    vec4 result = vec4(0.);
+    for(int g=0;g<grains;g++) {
+      ivec2 dataOffset = ivec2(g*4, ch+2);
+      vec4 p0 = texelFetch(tex, dataOffset + ivec2(0, 0), 0);
+      vec4 q0 = texelFetch(tex, dataOffset + ivec2(1, 0), 0);
+      vec4 p1 = texelFetch(tex, dataOffset + ivec2(2, 0), 0);
+      vec4 q1 = texelFetch(tex, dataOffset + ivec2(3, 0), 0);
+      float t = (coord.x*0.5+0.5) * dur;
+      if(coord.y > 0.) t = dur;
+      float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y); // should be positive
+      startTime += rand(vec2(g,ch))*grainDur/8.; // randomize phase
+      if(startTime < t) {
+        float singleDur = mix(1.0, 0.5, window) * grainDur;
+        if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
+        float i = floor((t-startTime) / singleDur);
+        p0 = p1, q0 = q1;
+        gen(startTime+i*singleDur, grainDur, g, ch, p1, q1);
+        if(i > 0.5) {
+          i--;
+          gen(startTime+i*singleDur, grainDur, g, ch, p0, q0);
+        }
+      }
+      if(coord.y < 0.) {
+        float dt = 1. / sampleRate;
+        vec4 ts = t + vec4(0,1,2,3) * dt;
+        vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
+        result += v*2.;
+      } else if(x/4 == g) {
+        vec4 v = vec4(0);
+        p0.z -= dur, p1.z -= dur;
+        int xi = x%4;
+        if(xi == 0) v = p0;
+        if(xi == 1) v = q0;
+        if(xi == 2) v = p1;
+        if(xi == 3) v = q1;
+        result = v;
       }
     }
-    if(coord.y < 0.) {
-      float dt = 1. / sampleRate;
-      vec4 ts = t + vec4(0,1,2,3) * dt;
-      vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      fragColor = v*0.8;
-    } else {
-      vec4 v = vec4(0);
-      p0.z -= dur, p1.z -= dur;
-      if(x == 0) v = p0;
-      if(x == 1) v = q0;
-      if(x == 2) v = p1;
-      if(x == 3) v = q1;
-      fragColor = v;
-    }
+    fragColor = coord.y < 0. ? result / float(grains) : result;
   }
-  `,rect,["samples","tex","grainDur","offset","audio","random"]);
+  `,rect,["samples","tex","audio","grainDur","offset","offsetRandom","playbackRate"]);
 
   return o;
 };

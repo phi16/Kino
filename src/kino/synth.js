@@ -19,16 +19,17 @@ module.exports = (o)=>{
     }
   });
 
-  function create(grainDur) {
+  function create() {
     const n = S.X.createScriptProcessor(samples, 0, 2);
     const loopBuffer = G.DataLoopBuffer(samples/4, 4);
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
         G.granular.samples(samples);
-        G.granular.grainDur(grainDur);
         G.granular.offset(lastX);
-        G.granular.random(Math.random(), Math.random());
+        G.granular.offsetRandom(0.5);
+        G.granular.grainDur(2.0);
+        G.granular.playbackRate(1.);
         G.granular.audio(audioBuffer.use());
         G.granular();
       });
@@ -46,7 +47,7 @@ module.exports = (o)=>{
     hpf.frequency.value = 20.0;
     n.connect(lpf).connect(hpf).connect(out);
   }
-  create(0.4);
+  create();
 
   return {};
 };
