@@ -5,11 +5,22 @@ module.exports = (o)=>{
   const out = S.node();
   const samples = 2048;
 
+  const raws = [
+    "/Oneshot/bell_a.wav",
+    "/Oneshot/drop.wav",
+    "/Oneshot/drumcan_f.wav",
+    "/Oneshot/dish_2.wav",
+    "/SE/draft_normal.wav",
+    "/SE/thunder_normal.wav"
+  ];
   const audioBuffer = G.DataBuffer(2048,1024);
-  S.load("sound/AmebientSamplePack/Oneshot/bell_a.wav").then(b=>{
-    audioBuffer.set(0,  b.getChannelData(0));
-    audioBuffer.set(64, b.getChannelData(1));
-  })
+  for(let i=0;i<raws.length;i++) {
+    let j = i;
+    S.load("sound/AmebientSamplePack" + raws[j]).then(b=>{
+      audioBuffer.set(j*128+0,  b.getChannelData(0));
+      audioBuffer.set(j*128+64, b.getChannelData(1));
+    });
+  }
 
   let lastX = 0.;
   I.onTouch(function*(){
@@ -28,7 +39,7 @@ module.exports = (o)=>{
         G.granular.samples(samples);
         G.granular.offset(lastX);
         G.granular.offsetRandom(0.5);
-        G.granular.grainDur(2.0);
+        G.granular.grainDur(1.0);
         G.granular.playbackRate(1.);
         G.granular.audio(audioBuffer.use());
         G.granular();
@@ -49,5 +60,5 @@ module.exports = (o)=>{
   }
   create();
 
-  return {};
+  return { audioBuffer };
 };

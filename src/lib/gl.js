@@ -351,7 +351,7 @@ module.exports = (gl,front)=>{
       },
       set: (hi,c)=>{
         const lw = c.length < w ? c.length : w;
-        const lh = Math.ceil(c.length / w);
+        const lh = Math.ceil(c.length / w / 4);
         const lc = new Float32Array(lw*lh*4);
         lc.set(c);
         gl.activeTexture(gl.TEXTURE0 + textureIndex);
@@ -579,8 +579,10 @@ module.exports = (gl,front)=>{
   }
   void gen(float t, float d, int gi, int ch, inout vec4 p, inout vec4 q) {
     float dur = samples / sampleRate;
-    vec2 seed = vec2(float(gi), t);
-    p = vec4(offset + rand(seed)*offsetRandom, d*playbackRate, t, d);
+    vec2 seed = vec2(float(gi*2 + ch), t);
+    float rate = playbackRate;
+    if(rand(vec2(t,ch)) < 0.2) rate *= 1.5;
+    p = vec4(offset + rand(seed)*offsetRandom, d*rate, t, d);
     q = vec4(1., window, 0., 0.);
   }
   void main() {
