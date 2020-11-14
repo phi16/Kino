@@ -541,8 +541,9 @@ module.exports = (gl,front)=>{
   in vec2 coord;
   uniform sampler2D tex;
   uniform float samples;
-  uniform float frequency;
+  uniform float grainDur;
   uniform float offset;
+  uniform vec2 random;
   uniform sampler2D audio;
   out vec4 fragColor;
   float rand(vec2 co){
@@ -596,62 +597,52 @@ module.exports = (gl,front)=>{
     vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
     return waves * q.x * w;
   }
-  void gen(float i, float t, float d, float ch, vec4 aux, inout vec4 p, inout vec4 q) {
-    aux.x += t;
+  void gen(float t, float d, int ch, inout vec4 p, inout vec4 q) {
     float dur = samples / sampleRate;
-    float rate = 1.;
-    p = vec4(offset + rand(vec2(aux.x))*0.5, d*rate, t, d);
+    p = vec4(offset + rand(vec2(random[ch], t))*0.5, d*1.0, t, d);
     q = vec4(1., window, 0., 0.);
   }
   void main() {
     float dur = samples / sampleRate;
     float res = samples/4.;
-    float paramLoc = fract((coord.y*0.5+0.5)*2.)/2.+.5;
+    int x = int((coord.x*0.5+0.5)*res);
+    int y = int((coord.y*0.5+0.5)*4.);
+    int ch = y%2;
 
-    // CurrentTime, 0, 0, 0
-    vec4 aux = texture(tex, vec2(0.5/res, paramLoc));
-
-    vec4 p0 = texture(tex, vec2(1.5/res, paramLoc));
-    vec4 q0 = texture(tex, vec2(2.5/res, paramLoc));
-    vec4 p1 = texture(tex, vec2(3.5/res, paramLoc));
-    vec4 q1 = texture(tex, vec2(4.5/res, paramLoc));
+    vec4 p0 = texelFetch(tex, ivec2(0, ch+2), 0);
+    vec4 q0 = texelFetch(tex, ivec2(1, ch+2), 0);
+    vec4 p1 = texelFetch(tex, ivec2(2, ch+2), 0);
+    vec4 q1 = texelFetch(tex, ivec2(3, ch+2), 0);
     float t = (coord.x*0.5+0.5) * dur;
     if(coord.y > 0.) t = dur;
-    float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
-    float ch = paramLoc*100.;
+    float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y); // should be positive
     if(startTime < t) {
-      float grainDur = 1.0/frequency;
       float singleDur = mix(1.0, 0.5, window) * grainDur;
       if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
       float i = floor((t-startTime) / singleDur);
-      gen(i, startTime+i*singleDur, grainDur, ch, aux, p0, q0);
+      p0 = p1, q0 = q1;
+      gen(startTime+i*singleDur, grainDur, ch, p1, q1);
       if(i > 0.5) {
         i--;
-        p1 = p0, q1 = q0;
-        gen(i, startTime+i*singleDur, grainDur, ch, aux, p0, q0);
+        gen(startTime+i*singleDur, grainDur, ch, p0, q0);
       }
     }
-    // 1 loop de owaranai baai
-    aux.x += dur;
-    aux.x = mod(aux.x, 4.);
     if(coord.y < 0.) {
       float dt = 1. / sampleRate;
       vec4 ts = t + vec4(0,1,2,3) * dt;
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
       fragColor = v*0.8;
     } else {
-      int x = int((coord.x*0.5+0.5)*res);
       vec4 v = vec4(0);
       p0.z -= dur, p1.z -= dur;
-      if(x == 0) v = aux;
-      if(x == 1) v = p0;
-      if(x == 2) v = q0;
-      if(x == 3) v = p1;
-      if(x == 4) v = q1;
+      if(x == 0) v = p0;
+      if(x == 1) v = q0;
+      if(x == 2) v = p1;
+      if(x == 3) v = q1;
       fragColor = v;
     }
   }
-  `,rect,["samples","tex","frequency","offset","audio"]);
+  `,rect,["samples","tex","grainDur","offset","audio","random"]);
 
   return o;
 };

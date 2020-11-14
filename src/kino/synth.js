@@ -15,19 +15,20 @@ module.exports = (o)=>{
   I.onTouch(function*(){
     while(true) {
       let c = yield;
-      lastX = c.x*0.04;
+      lastX = c.x*0.01;
     }
   });
 
-  function create(f) {
+  function create(grainDur) {
     const n = S.X.createScriptProcessor(samples, 0, 2);
     const loopBuffer = G.DataLoopBuffer(samples/4, 4);
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
         G.granular.samples(samples);
-        G.granular.frequency(f);
+        G.granular.grainDur(grainDur);
         G.granular.offset(lastX);
+        G.granular.random(Math.random(), Math.random());
         G.granular.audio(audioBuffer.use());
         G.granular();
       });
@@ -45,7 +46,7 @@ module.exports = (o)=>{
     hpf.frequency.value = 20.0;
     n.connect(lpf).connect(hpf).connect(out);
   }
-  create(25);
+  create(0.4);
 
   return {};
 };
