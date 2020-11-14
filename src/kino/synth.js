@@ -12,7 +12,8 @@ module.exports = (o)=>{
     "AmebientSamplePack/SE/thunder_normal.wav",
     "TA_MK_STAB_9_A.wav",
     "BKAYE_brass_pad_G.wav",
-    "noise.wav"
+    "glsl_inst0.wav",
+    "glsl_dist.wav",
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
@@ -40,8 +41,8 @@ module.exports = (o)=>{
         G.granular.samples(samples);
         G.granular.offset(lastX);
         G.granular.offsetRandom(0.5);
-        G.granular.grainDur(Math.random() < 0.5 ? 1.0 : 0.5);
-        G.granular.playbackRate(1.);
+        G.granular.grainDur(1.0);
+        G.granular.playbackRate(1.0);
         G.granular.audio(audioBuffer.use());
         G.granular();
       });

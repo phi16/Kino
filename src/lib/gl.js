@@ -564,7 +564,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    return sampleAudio(t, 4, 0);
+    return sampleAudio(t, 0, 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -581,8 +581,8 @@ module.exports = (gl,front)=>{
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(gi*2 + ch), t);
     float rate = playbackRate;
-    if(rand(vec2(gi,ch)) < 0.5) rate *= 1.5;
-    p = vec4(offset + t + rand(seed)*offsetRandom, d*rate, t, d);
+    if(rand(vec2(gi,ch)) < 0.5) rate *= 1.5; // TODO: be unstable
+    p = vec4(offset + rand(seed)*offsetRandom, d*rate, t, d);
     q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }
   void main() {
@@ -604,11 +604,11 @@ module.exports = (gl,front)=>{
       vec4 p1 = texelFetch(tex, dataOffset + ivec2(2, 0), 0);
       vec4 q1 = texelFetch(tex, dataOffset + ivec2(3, 0), 0);
       if(coord.y > 0.) t = dur;
-      float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y); // should be positive
+      float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
+      float singleDur = mix(1.0, 0.5, window) * grainDur;
+      if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
       startTime += rand(vec2(g,ch))*grainDur/8.; // randomize phase
       if(startTime < t) {
-        float singleDur = mix(1.0, 0.5, window) * grainDur;
-        if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
         float i = floor((t-startTime) / singleDur);
         p0 = p1, q0 = q1;
         gen(startTime+i*singleDur, grainDur, g, ch, p1, q1);
