@@ -113,7 +113,7 @@ module.exports = (gl,front)=>{
   };
 
   function buildMaterial(vs,fs,mesh,params) {
-    const prec = "precision mediump float;\n";
+    const prec = "#version 300 es\nprecision mediump float;\n";
     function buildShader(type,src) {
       const s = gl.createShader(type);
       gl.shaderSource(s,prec+src);
@@ -178,21 +178,22 @@ module.exports = (gl,front)=>{
   // FrameBuffers
 
   const clone = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
       coord = vertex;
       gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
-  uniform sampler2D texture;
+  in vec2 coord;
+  uniform sampler2D tex;
+  out vec4 fragColor;
   void main() {
       vec2 uv = coord * 0.5 + 0.5;
-      vec3 col = texture2D(texture, uv).rgb;
-      gl_FragColor = vec4(col,1);
+      vec3 col = texture(tex, uv).rgb;
+      fragColor = vec4(col,1);
   }
-  `,rect,["texture"]);
+  `,rect,["tex"]);
 
   let lastTexture = 0;
   const RenderBuffer = _=>{
@@ -266,12 +267,12 @@ module.exports = (gl,front)=>{
     resizeCallback.push((nw,nh)=>{
       buffers[1].resize(nw,nh);
       buffers[1].render(_=>{
-        clone.texture(buffers[0].use());
+        clone.tex(buffers[0].use());
         clone();
       });
       buffers[0].resize(nw,nh);
       buffers[0].render(_=>{
-        clone.texture(buffers[1].use());
+        clone.tex(buffers[1].use());
         clone();
       });
     });
@@ -347,9 +348,20 @@ module.exports = (gl,front)=>{
         gl.readPixels(0, 0, w, hi, gl.RGBA, gl.FLOAT, b);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return b;
+      },
+      set: (hi,c)=>{
+        const lw = c.length < w ? c.length : w;
+        const lh = Math.ceil(c.length / w);
+        const lc = new Float32Array(lw*lh*4);
+        lc.set(c);
+        gl.activeTexture(gl.TEXTURE0 + textureIndex);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, hi, lw, lh, gl.RGBA, gl.FLOAT, lc);
+        gl.bindTexture(gl.TEXTURE_2D, null);
       }
     };
   };
+  o.DataBuffer = DataBuffer;
   const DataLoopBuffer = (w,h)=>{
     const buffers = [DataBuffer(w,h), DataBuffer(w,h)];
     return {
@@ -389,96 +401,101 @@ module.exports = (gl,front)=>{
   o.clone = clone;
 
   o.blend = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
       coord = vertex;
       gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
-  uniform sampler2D texture;
+  in vec2 coord;
+  uniform sampler2D tex;
   uniform sampler2D original;
+  out vec4 fragColor;
   void main() {
       vec2 colUV = coord * 0.5 * vec2(1,-1) + 0.5;
-      vec3 col = texture2D(texture, colUV).rgb;
+      vec3 col = texture(tex, colUV).rgb;
       vec2 origUV = coord * 0.505 + 0.5;
-      vec3 orig = texture2D(original, origUV).rgb;
-      gl_FragColor = vec4(mix(col, orig, 0.5),1);
+      vec3 orig = texture(original, origUV).rgb;
+      fragColor = vec4(mix(col, orig, 0.5),1);
   }
-  `,rect,["texture", "original"]);
+  `,rect,["tex", "original"]);
 
   o.color = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
       coord = vertex;
       gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
+  in vec2 coord;
   uniform vec3 color;
+  out vec4 fragColor;
   void main() {
-      gl_FragColor = vec4(color,1);
+      fragColor = vec4(color,1);
   }
   `,rect,["color"]);
 
   o.additive = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
     coord = vertex;
     gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
-  uniform sampler2D texture;
+  in vec2 coord;
+  uniform sampler2D tex;
   uniform sampler2D self;
   uniform float scale;
   uniform vec2 pixelRes;
+  out vec4 fragColor;
   void main() {
-    vec3 col = texture2D(self, coord*0.5+0.5).rgb;
+    vec3 col = texture(self, coord*0.5+0.5).rgb;
     vec2 pixUV = (coord*0.5+0.5) * scale * pixelRes - 0.5;
     pixUV = floor(pixUV) + smoothstep(vec2(0.),vec2(1.),fract(pixUV));
-    col += texture2D(texture, (pixUV+0.5) / pixelRes).rgb * 0.2;
-    gl_FragColor = vec4(col,1);
+    col += texture(tex, (pixUV+0.5) / pixelRes).rgb * 0.2;
+    fragColor = vec4(col,1);
   }
-  `,rect,["texture","self","scale","pixelRes"]);
+  `,rect,["tex","self","scale","pixelRes"]);
 
   o.minimize = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
     coord = vertex;
     gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
-  uniform sampler2D texture;
+  in vec2 coord;
+  uniform sampler2D tex;
   uniform vec2 pixelRes;
+  out vec4 fragColor;
   void main() {
     vec2 center = (coord*0.5+0.5) * 2.0 * pixelRes;
     vec3 col = vec3(0.);
-    col += texture2D(texture, (center + vec2(+1,+1)) / pixelRes).xyz;
-    col += texture2D(texture, (center + vec2(-1,+1)) / pixelRes).xyz;
-    col += texture2D(texture, (center + vec2(+1,-1)) / pixelRes).xyz;
-    col += texture2D(texture, (center + vec2(-1,-1)) / pixelRes).xyz;
+    col += texture(tex, (center + vec2(+1,+1)) / pixelRes).xyz;
+    col += texture(tex, (center + vec2(-1,+1)) / pixelRes).xyz;
+    col += texture(tex, (center + vec2(+1,-1)) / pixelRes).xyz;
+    col += texture(tex, (center + vec2(-1,-1)) / pixelRes).xyz;
     col /= 4.0;
-    gl_FragColor = vec4(col,1);
+    fragColor = vec4(col,1);
   }
-  `,rect,["texture","pixelRes"]);
+  `,rect,["tex","pixelRes"]);
 
   o.postprocess = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
     coord = vertex;
     gl_Position = vec4(vertex,0,1);
   }
   `,`
-  varying vec2 coord;
-  uniform sampler2D texture;
+  in vec2 coord;
+  uniform sampler2D tex;
   uniform sampler2D overlay;
+  out vec4 fragColor;
   ${library}
   vec2 distort(vec2 u, int i) {
     float l = length(u);
@@ -491,28 +508,28 @@ module.exports = (gl,front)=>{
     // for(int i=0;i<16;i++) {
     //   vec3 w = pow(cos((vec3(0,1,-1)/3. + float(i)/16.0)*3.1415926535*2.)*0.5+0.5,vec3(1.4));
     //   w *= 1. - pow(float(i)/16.*2.-1., 2.0);
-    //   col += texture2D(texture, distort(coord,i)*0.5+0.5).rgb * w;
+    //   col += texture(tex, distort(coord,i)*0.5+0.5).rgb * w;
     //   weight += w;
     // }
     // col /= weight;
     // col = pow(col, vec3(2.));
 
     col = vec3(0.1);
-    vec3 bloom = texture2D(texture, coord*0.5+0.5).rgb;
-    vec3 original = texture2D(overlay, coord*0.5*vec2(1,-1)+0.5).rgb;
+    vec3 bloom = texture(tex, coord*0.5+0.5).rgb;
+    vec3 original = texture(overlay, coord*0.5*vec2(1,-1)+0.5).rgb;
     col += mix(bloom, original, 0.5) * 1.5;
 
     float dist = 3.0;
     float vignette = pow(normalize(vec3(coord*resolution,dist)).z,4.);
     col *= vignette;
     col = floor(col*255.+rand(coord))/255.;
-    gl_FragColor = vec4(col,1);
+    fragColor = vec4(col,1);
   }
-  `,rect,["texture","overlay"]);
+  `,rect,["tex","overlay"]);
 
   o.granular = buildMaterial(`
-  attribute vec2 vertex;
-  varying vec2 coord;
+  in vec2 vertex;
+  out vec2 coord;
   void main() {
       coord = vertex;
       gl_Position = vec4(vertex,0,1);
@@ -520,12 +537,14 @@ module.exports = (gl,front)=>{
   `,`
   #define tau (2.*3.1415926535)
   #define sampleRate 48000.
-  varying vec2 coord;
-  uniform sampler2D texture;
-  uniform vec2 offset;
+  #define window 1.0
+  in vec2 coord;
+  uniform sampler2D tex;
   uniform float samples;
   uniform float frequency;
-  uniform float window;
+  uniform float offset;
+  uniform sampler2D audio;
+  out vec4 fragColor;
   float rand(vec2 co){
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
   }
@@ -547,8 +566,24 @@ module.exports = (gl,front)=>{
       noise0((fac+rep)*mult + offset, 1.),
       smoothstep(0.,1.,1.-fac/rep));
   }
+  float sampleAudio(float t, int i, int ch) {
+    float s = t * sampleRate;
+    int s0 = int(s), s1 = int(s) + 1;
+    float f = s - floor(s);
+    ivec2 base = ivec2(0, (i*2+ch)*64);
+    int sw = 2048;
+    float m0 = texelFetch(audio, base + ivec2(s0/4%sw, s0/4/sw), 0)[s0%4];
+    float m1 = texelFetch(audio, base + ivec2(s1/4%sw, s1/4/sw), 0)[s1%4];
+    if(s0 < 0 || s0 >= 524288) m0 = 0.;
+    if(s1 < 0 || s1 >= 524288) m1 = 0.;
+    return mix(m0, m1, smoothstep(0., 1., f));
+  }
   float wave(float t) {
-    return inst0(40.*4., t/4., 1000., 100.);
+    float v = 0.;
+    // v += inst0(50.*4., t/4., 1000., 100.);
+    // v += noise0(t*250., 1.);
+    v += sampleAudio(t, 0, 0);
+    return v;
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -558,21 +593,28 @@ module.exports = (gl,front)=>{
     vec4 u = abs(r - 0.5);
     vec4 w = smoothstep(0., 0.5*q.y, 0.5-u);
     vec4 tt = p.x + p.y*r;
-    return vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w)) * q.x * w;
+    vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
+    return waves * q.x * w;
   }
-  void gen(float t, float d, float ch, inout vec4 p, inout vec4 q) {
+  void gen(float i, float t, float d, float ch, vec4 aux, inout vec4 p, inout vec4 q) {
+    aux.x += t;
     float dur = samples / sampleRate;
-    p = vec4(mix(offset.x, offset.y, t/dur) + ch, 0.1, t, d);
+    float rate = 1.;
+    p = vec4(offset + rand(vec2(aux.x))*0.5, d*rate, t, d);
     q = vec4(1., window, 0., 0.);
   }
   void main() {
     float dur = samples / sampleRate;
     float res = samples/4.;
     float paramLoc = fract((coord.y*0.5+0.5)*2.)/2.+.5;
-    vec4 p0 = texture2D(texture, vec2(0.5/res, paramLoc));
-    vec4 q0 = texture2D(texture, vec2(1.5/res, paramLoc));
-    vec4 p1 = texture2D(texture, vec2(2.5/res, paramLoc));
-    vec4 q1 = texture2D(texture, vec2(3.5/res, paramLoc));
+
+    // CurrentTime, 0, 0, 0
+    vec4 aux = texture(tex, vec2(0.5/res, paramLoc));
+
+    vec4 p0 = texture(tex, vec2(1.5/res, paramLoc));
+    vec4 q0 = texture(tex, vec2(2.5/res, paramLoc));
+    vec4 p1 = texture(tex, vec2(3.5/res, paramLoc));
+    vec4 q1 = texture(tex, vec2(4.5/res, paramLoc));
     float t = (coord.x*0.5+0.5) * dur;
     if(coord.y > 0.) t = dur;
     float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
@@ -582,30 +624,34 @@ module.exports = (gl,front)=>{
       float singleDur = mix(1.0, 0.5, window) * grainDur;
       if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
       float i = floor((t-startTime) / singleDur);
-      gen(startTime+i*singleDur, grainDur, ch, p0, q0);
+      gen(i, startTime+i*singleDur, grainDur, ch, aux, p0, q0);
       if(i > 0.5) {
         i--;
         p1 = p0, q1 = q0;
-        gen(startTime+i*singleDur, grainDur, ch, p0, q0);
+        gen(i, startTime+i*singleDur, grainDur, ch, aux, p0, q0);
       }
     }
+    // 1 loop de owaranai baai
+    aux.x += dur;
+    aux.x = mod(aux.x, 4.);
     if(coord.y < 0.) {
       float dt = 1. / sampleRate;
       vec4 ts = t + vec4(0,1,2,3) * dt;
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      gl_FragColor = v*0.5;
+      fragColor = v*0.8;
     } else {
       int x = int((coord.x*0.5+0.5)*res);
       vec4 v = vec4(0);
       p0.z -= dur, p1.z -= dur;
-      if(x == 0) v = p0;
-      if(x == 1) v = q0;
-      if(x == 2) v = p1;
-      if(x == 3) v = q1;
-      gl_FragColor = v;
+      if(x == 0) v = aux;
+      if(x == 1) v = p0;
+      if(x == 2) v = q0;
+      if(x == 3) v = p1;
+      if(x == 4) v = q1;
+      fragColor = v;
     }
   }
-  `,rect,["samples","texture","frequency","window","offset"]);
+  `,rect,["samples","tex","frequency","offset","audio"]);
 
   return o;
 };

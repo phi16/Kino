@@ -5,6 +5,7 @@ module.exports = (o)=>{
   const S = o.sound;
 
   let n = null;
+  let hPadding = 0, vPadding = 0;
 
   const touchCount = Array(12), touchBright = Array(12);
   touchCount.fill(0), touchBright.fill(0);
@@ -53,9 +54,9 @@ module.exports = (o)=>{
 
   I.onTouch(function*(){
     if(n == null) return;
-    return;
     let c = yield;
     while(c.force < 20) c = yield;
+    if(c.x < hPadding || c.y < vPadding || c.x > I.width-hPadding || c.y > I.height-vPadding) return;
     let panel = panelAt(c);
     function vel() {
       return Math.pow(Math.max(0,c.force-20)*0.0015, 2);
@@ -108,13 +109,14 @@ module.exports = (o)=>{
       n = null;
       displayTime = 0;
     },
-    render: dt=>{
+    render: (dt,hPad,vPad)=>{
+      hPadding = hPad, vPadding = vPad;
       displayTime += dt;
       for(let i=0;i<touchCount.length;i++) {
         if(touchCount[i] > 0) touchBright[i] += (1 - touchBright[i]) / 4.0;
         else touchBright[i] += (0 - touchBright[i]) / 4.0;
       }
-      R.rect(0,0,I.width,I.height).clip(_=>{
+      R.rect(hPad,vPad,I.width-2*hPad,I.height-2*vPad).clip(_=>{
         let s = panelScale;
         R.alpha(0.5,_=>{
           R.rect(0,0,I.width,I.height).fill(0,0,0);
