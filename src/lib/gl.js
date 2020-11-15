@@ -556,7 +556,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    return sampleAudio(t, 5, 0);
+    return sampleAudio(t, 0, 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -569,12 +569,12 @@ module.exports = (gl,front)=>{
     vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
     return waves * q.x * w;
   }
-  void gen(float t, float d, int gi, int ch, inout vec4 p, inout vec4 q) {
+  void gen(float t, float d, int gi, int ch, out vec4 p, out vec4 q) {
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(gi*2 + ch), t);
     float rate = playbackRate;
-    // if(rand(vec2(gi,ch)) < 0.2) rate *= 1.5; // TODO: be unstable
-    p = vec4(offset + rand(seed)*offsetRandom, d*rate, t, d);
+    // if(rand(seed+0.) < 0.2) rate *= 1.5; // TODO: be stable (gi,ch)
+    p = vec4(offset + rand(seed+1.)*offsetRandom, d*rate, t, d);
     q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }
   void main() {
@@ -584,6 +584,7 @@ module.exports = (gl,front)=>{
     int y = int((coord.y*0.5+0.5)*4.);
     int ch = y%2;
     float t = (coord.x*0.5+0.5) * dur;
+    if(coord.y > 0.) t = dur;
     float dt = 1. / sampleRate;
     vec4 ts = t + vec4(0,1,2,3) * dt;
     vec4 result = vec4(0.);
@@ -595,11 +596,11 @@ module.exports = (gl,front)=>{
       vec4 q0 = texelFetch(tex, dataOffset + ivec2(1, 0), 0);
       vec4 p1 = texelFetch(tex, dataOffset + ivec2(2, 0), 0);
       vec4 q1 = texelFetch(tex, dataOffset + ivec2(3, 0), 0);
-      if(coord.y > 0.) t = dur;
       float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
       float singleDur = mix(1.0, 0.5, window) * grainDur;
       if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
-      startTime += rand(vec2(g,ch))*grainDur/8.; // randomize phase
+      startTime += rand(vec2(g,ch) + randoms)*grainDur; // randomize phase
+      startTime = max(0., startTime); // may occur from sudden grainDur decreasing
       if(startTime < t) {
         float i = floor((t-startTime) / singleDur);
         p0 = p1, q0 = q1;
@@ -623,7 +624,7 @@ module.exports = (gl,front)=>{
     }
     fragColor = coord.y < 0. ? result / float(grains) : result;
   }
-  `,rect,["samples","tex","audio","grainDur","offset","offsetRandom","playbackRate"]);
+  `,rect,["samples","tex","audio","grainDur","offset","offsetRandom","playbackRate","randoms"]);
 
   return o;
 };

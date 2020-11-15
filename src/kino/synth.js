@@ -3,7 +3,6 @@ module.exports = (o)=>{
   const S = o.sound;
   const I = o.input;
   const L = o.log;
-  const out = S.node();
   const samples = 2048;
 
   const amebient = "";
@@ -27,6 +26,7 @@ module.exports = (o)=>{
 
   const loopBuffers = [];
   let retainedBuffers = 0;
+  let acquireFailed = false;
 
   function createSynth(f) {
     if(loopBuffers.length == 0) {
@@ -34,13 +34,17 @@ module.exports = (o)=>{
         loopBuffers.push(G.DataLoopBuffer(samples/4, 4));
         retainedBuffers++;
       } else {
-        L.add("Acquire buffer failed");
+        if(!acquireFailed) {
+          L.add("Acquire buffer failed");
+          acquireFailed = true;
+        }
         return {
           node: S.X.createGain(),
           disconnect: _=>_
         };
       }
     }
+    acquireFailed = false;
     const loopBuffer = loopBuffers.pop();
     const n = S.X.createScriptProcessor(samples, 0, 2);
     loopBuffer.render(_=>{
@@ -53,9 +57,10 @@ module.exports = (o)=>{
         G.granular.samples(samples);
         G.granular.offset(0.0);
         G.granular.offsetRandom(0.5);
-        G.granular.grainDur(1.0);
+        G.granular.grainDur(Math.random()+0.5);
         G.granular.playbackRate(f/440);
         G.granular.audio(audioBuffer.use());
+        G.granular.randoms(Math.random(), Math.random());
         G.granular();
       });
       const b = loopBuffer.pixels(2);
@@ -66,10 +71,10 @@ module.exports = (o)=>{
     };
     const lpf = S.X.createBiquadFilter();
     lpf.type = "lowpass";
-    lpf.frequency.value = f * 6.0;
+    lpf.frequency.value = 2000.0;
     const hpf = S.X.createBiquadFilter();
     hpf.type = "highpass";
-    hpf.frequency.value = f * 0.05;
+    hpf.frequency.value = 20.0;
     n.connect(lpf).connect(hpf);
 
     return {
@@ -77,7 +82,7 @@ module.exports = (o)=>{
       disconnect: _=>{
         loopBuffers.push(loopBuffer);
       }
-    }
+    };
   }
 
   return { audioBuffer, node: createSynth };
