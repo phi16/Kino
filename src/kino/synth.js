@@ -2,6 +2,7 @@ module.exports = (o)=>{
   const G = o.render.gl;
   const S = o.sound;
   const I = o.input;
+  const L = o.log;
   const out = S.node();
   const samples = 2048;
 
@@ -25,25 +26,20 @@ module.exports = (o)=>{
   }
 
   const loopBuffers = [];
-  for(let i=0;i<10;i++) {
-    loopBuffers.push(G.DataLoopBuffer(samples/4, 4));
-  }
-
-  let lastX = 0.;
-  I.onTouch(function*(){
-    while(true) {
-      let c = yield;
-      lastX = c.x*0.01;
-    }
-  });
+  let retainedBuffers = 0;
 
   function createSynth(f) {
     if(loopBuffers.length == 0) {
-      console.log("Acquire failed");
-      return {
-        node: S.X.createGain(),
-        disconnect: _=>_
-      };
+      if(retainedBuffers < 64) {
+        loopBuffers.push(G.DataLoopBuffer(samples/4, 4));
+        retainedBuffers++;
+      } else {
+        L.add("Acquire buffer failed");
+        return {
+          node: S.X.createGain(),
+          disconnect: _=>_
+        };
+      }
     }
     const loopBuffer = loopBuffers.pop();
     const n = S.X.createScriptProcessor(samples, 0, 2);
@@ -55,7 +51,7 @@ module.exports = (o)=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
         G.granular.samples(samples);
-        G.granular.offset(lastX);
+        G.granular.offset(0.0);
         G.granular.offsetRandom(0.5);
         G.granular.grainDur(1.0);
         G.granular.playbackRate(f/440);
@@ -70,10 +66,10 @@ module.exports = (o)=>{
     };
     const lpf = S.X.createBiquadFilter();
     lpf.type = "lowpass";
-    lpf.frequency.value = 10000.0;
+    lpf.frequency.value = f * 6.0;
     const hpf = S.X.createBiquadFilter();
     hpf.type = "highpass";
-    hpf.frequency.value = 20.0;
+    hpf.frequency.value = f * 0.05;
     n.connect(lpf).connect(hpf);
 
     return {

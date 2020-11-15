@@ -144,9 +144,11 @@ module.exports = (gl,front)=>{
     params.forEach(pa=>{
       locs[pa] = gl.getUniformLocation(p,pa);
     });
-    function setting(name, args) {
+    function setting(name, ix, args) {
       if(args.length == 1 && args[0].texture !== undefined) {
-        gl.uniform1i(locs[name], args[0].texture);
+        gl.activeTexture(gl.TEXTURE0 + ix);
+        gl.bindTexture(gl.TEXTURE_2D, args[0].texture);
+        gl.uniform1i(locs[name], ix);
       } else {
         const func = "uniform" + args.length + "fv";
         const as = [];
@@ -159,19 +161,21 @@ module.exports = (gl,front)=>{
       gl.useProgram(p);
       task.forEach(t=>{t();});
       task = [];
-      setting("resolution",[1,height/width]);
+      setting("resolution", 0, [1,height/width]);
       const sec = (new Date() - startTime) / 1000;
-      setting("time", [sec]);
-      setting("randSeed", [randSeed]);
+      setting("time", 0, [sec]);
+      setting("randSeed", 0, [randSeed]);
       gl.bindAttribLocation(p,0,"vertex");
       gl.bindAttribLocation(p,1,"normal");
       mesh();
     };
-    params.forEach(l=>{
+    for(let i=0;i<params.length;i++) {
+      const l = params[i];
+      const j = i;
       o[l] = function() {
-        task.push(_=>{setting(l, arguments);});
+        task.push(_=>{setting(l, j, arguments);});
       };
-    });
+    }
     return o;
   }
 
@@ -195,9 +199,7 @@ module.exports = (gl,front)=>{
   }
   `,rect,["tex"]);
 
-  let lastTexture = 0;
   const RenderBuffer = _=>{
-    const textureIndex = lastTexture++;
     const rb = gl.createRenderbuffer();
     let w = width, h = height;
     gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
@@ -237,7 +239,6 @@ module.exports = (gl,front)=>{
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       },
       render: e=>{
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.depthMask(true);
@@ -250,12 +251,9 @@ module.exports = (gl,front)=>{
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       },
       use: _=>{
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        return { texture: textureIndex };
+        return { texture: tex };
       },
       copyCanvas: _=>{
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, front);
         gl.generateMipmap(gl.TEXTURE_2D);
@@ -298,8 +296,6 @@ module.exports = (gl,front)=>{
   // Data Buffer
 
   const DataBuffer = (w,h)=>{
-    const textureIndex = lastTexture++;
-
     const rb = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA32F, w, h);
@@ -323,7 +319,6 @@ module.exports = (gl,front)=>{
 
     return {
       render: e=>{
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -338,9 +333,7 @@ module.exports = (gl,front)=>{
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       },
       use: _=>{
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        return { texture: textureIndex };
+        return { texture: tex };
       },
       pixels: hi=>{
         const b = new Float32Array(w*hi*4);
@@ -354,7 +347,6 @@ module.exports = (gl,front)=>{
         const lh = Math.ceil(c.length / w / 4);
         const lc = new Float32Array(lw*lh*4);
         lc.set(c);
-        gl.activeTexture(gl.TEXTURE0 + textureIndex);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, hi, lw, lh, gl.RGBA, gl.FLOAT, lc);
         gl.bindTexture(gl.TEXTURE_2D, null);
@@ -581,7 +573,7 @@ module.exports = (gl,front)=>{
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(gi*2 + ch), t);
     float rate = playbackRate;
-    if(rand(vec2(gi,ch)) < 0.2) rate *= 1.5; // TODO: be unstable
+    // if(rand(vec2(gi,ch)) < 0.2) rate *= 1.5; // TODO: be unstable
     p = vec4(offset + rand(seed)*offsetRandom, d*rate, t, d);
     q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }

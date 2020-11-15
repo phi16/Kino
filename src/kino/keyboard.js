@@ -46,7 +46,7 @@ module.exports = (o, Synth)=>{
         setTimeout(_=>{
           synth.disconnect();
           g.disconnect();
-        },1000);
+        }, 1000);
       }
     }
   }
@@ -87,7 +87,7 @@ module.exports = (o, Synth)=>{
 
       setTimeout(_=>{
         delete touchPanels[key];
-      },1000);
+      }, 1000);
       if(c.state == I.state.END) break;
     }
   });
