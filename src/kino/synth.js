@@ -55,9 +55,9 @@ module.exports = (o)=>{
         G.granular.tex(loopBuffer.use());
         G.granular.samples(samples);
         G.granular.offset(0.0);
-        G.granular.offsetRandom(0.5);
-        G.granular.grainDur(Math.random()+0.5);
-        G.granular.playbackRate(f/440);
+        G.granular.offsetRandom(0.1);
+        G.granular.grainDur((Math.random()+0.5)/(f/440));
+        G.granular.playbackRate(f/220);
         G.granular.audio(audioBuffer.use());
         G.granular.randoms(Math.random(), Math.random());
         G.granular();

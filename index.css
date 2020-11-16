@@ -1,6 +1,7 @@
 html {
   overflow: hidden;
   position: fixed;
+  background: #111;
 }
 body {
   margin: 0;

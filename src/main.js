@@ -5,8 +5,7 @@ module.exports = o=>{
   const L = o.log;
   const S = o.sound;
 
-  const Synth = require('./kino/synth.js')(o);
-  const Keyboard = require('./kino/keyboard.js')(o, Synth);
+  const Keyboard = require('./kino/keyboard.js')(o);
 
   const M = {
     pad: 0,
@@ -20,7 +19,7 @@ module.exports = o=>{
   M.offsetX = -M.mainW/2+M.frame;
   M.offsetY = -M.mainH/2+M.frame;
   M.centerY = M.mainH/2-M.frame;
-  M.hPad = 18;
+  M.hPad = 24;
   M.vPad = 8;
   M.touchScale = 1/M.multScale;
   R.resizeCallback = _=>{
