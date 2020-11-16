@@ -556,7 +556,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    return sampleAudio(t, 0, 0);
+    return sampleAudio(t, 5, 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration

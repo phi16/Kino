@@ -5,7 +5,6 @@ module.exports = (o)=>{
   const L = o.log;
   const samples = 2048;
 
-  const amebient = "";
   const raws = [
     "AmebientSamplePack/Oneshot/bell_a.wav",
     "AmebientSamplePack/SE/draft_normal.wav",

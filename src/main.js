@@ -7,7 +7,6 @@ module.exports = o=>{
 
   const Synth = require('./kino/synth.js')(o);
   const Keyboard = require('./kino/keyboard.js')(o, Synth);
-  Keyboard.open(1);
 
   const M = {
     pad: 0,

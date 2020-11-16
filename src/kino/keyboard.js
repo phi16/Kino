@@ -4,7 +4,6 @@ module.exports = (o, Synth)=>{
   const L = o.log;
   const S = o.sound;
 
-  let n = null;
   let hPadding = 0, vPadding = 0;
 
   const touchCount = Array(12), touchBright = Array(12);
@@ -52,7 +51,6 @@ module.exports = (o, Synth)=>{
   }
 
   I.onTouch(function*(){
-    if(n == null) return;
     let c = yield;
     while(c.force < 20) c = yield;
     if(c.x < hPadding || c.y < vPadding || c.x > I.width-hPadding || c.y > I.height-vPadding) return;
@@ -92,22 +90,8 @@ module.exports = (o, Synth)=>{
     }
   });
 
-  let displayTime = 10000;
+  let displayTime = 0;
   return {
-    active: _=>{
-      return n != null;
-    },
-    target: _=>{
-      return n;
-    },
-    open: sel=>{
-      n = sel;
-      displayTime = 0;
-    },
-    close: _=>{
-      n = null;
-      displayTime = 0;
-    },
     render: (dt,hPad,vPad)=>{
       hPadding = hPad, vPadding = vPad;
       displayTime += dt;
@@ -123,7 +107,7 @@ module.exports = (o, Synth)=>{
         function shapeDist(x,y) {
           let d = Math.sqrt(x*x+y*y);
           d = Math.exp(-Math.max(0, displayTime*16-d*0.5));
-          return n ? 1 - d : d;
+          return 1 - d;
         }
         R.blend("lighter",_=>{
           R.translate(I.width/2,I.height/2).with(_=>{
