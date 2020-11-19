@@ -16,7 +16,7 @@ module.exports = {
       }
     });
     document.addEventListener("mouseup",e=>{
-      if(state == "move") {
+      if(state == "move" || state == "start") {
         state = "end";
         pos = domain(e);
       }

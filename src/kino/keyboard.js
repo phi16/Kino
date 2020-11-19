@@ -3,11 +3,9 @@ module.exports = (o)=>{
   const I = o.input;
   const L = o.log;
   const S = o.sound;
-  const Synth = require('./synth.js')(o);
 
   let hPadding = 0, vPadding = 0;
   const panelScale = 12;
-
   function panelAt(c) {
     const lx = (c.x - I.width/2) / panelScale;
     const ly = (c.y - I.height/2) / panelScale;
@@ -32,8 +30,9 @@ module.exports = (o)=>{
   }
 
   const outNode = (_=>{
-    const n = S.node();
-    const c = S.X.createConvolver();
+    const end = S.node();
+    const n = S.X.createGain();
+    /* const c = S.X.createConvolver();
     const b = S.X.createBuffer(2, S.X.sampleRate*4, S.X.sampleRate);
     const f0 = b.getChannelData(0);
     const f1 = b.getChannelData(1);
@@ -46,8 +45,7 @@ module.exports = (o)=>{
       u += (Math.random() * 2 - 1) * 0.4;
     }
     c.buffer = b;
-    c.connect(n);
-    return n;
+    c.connect(n); */
 
     /* const src = S.X.createGain();
     const F1 = S.X.createBiquadFilter();
@@ -62,13 +60,22 @@ module.exports = (o)=>{
     src.connect(F1).connect(n);
     src.connect(F2).connect(n);
     return src; */
+
+    const lpf = S.X.createBiquadFilter();
+    lpf.type = "lowpass";
+    lpf.frequency.value = 4000.0;
+    const hpf = S.X.createBiquadFilter();
+    hpf.type = "highpass";
+    hpf.frequency.value = 20.0;
+    n.connect(lpf).connect(hpf).connect(end);
+    return n;
   })();
+  const Synth = require('./synth.js')(o, outNode);
+
   const synths = {};
   function retainNote(p, f) {
     if(synths[p]) return synths[p].acquire();
-    const s = Synth.node(f);
-    const g = S.X.createGain();
-    s.node.connect(g).connect(outNode);
+    const s = Synth.note(f);
     let count = 0;
     let volume = 0, volumeMult = 1/(f*0.005);
     const touches = {};
@@ -81,7 +88,7 @@ module.exports = (o)=>{
         let d = touch.d;
         let target = Math.max(0, d) * 1.5;
         volume += (target - volume) * touch.vel * (d < 0 ? -d : 0.1);
-        g.gain.setTargetAtTime(volume*volumeMult, S.X.currentTime, 0.01);
+        s.gain(volume*volumeMult);
       },
       acquire: _=>{
         count++;
@@ -96,11 +103,7 @@ module.exports = (o)=>{
         if(count == 0) {
           if(volume < 0.01) {
             delete synths[p];
-            g.gain.setTargetAtTime(0, S.X.currentTime, 0.01);
-            setTimeout(_=>{
-              g.disconnect();
-              s.disconnect();
-            }, 100);
+            s.disconnect();
           }
         }
       }
