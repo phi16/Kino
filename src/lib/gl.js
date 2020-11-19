@@ -537,6 +537,7 @@ module.exports = (gl,front)=>{
   uniform float offset;
   uniform float offsetRandom;
   uniform float playbackRate;
+  uniform float audioIndex;
   uniform vec2 randoms;
   uniform sampler2D audio;
   out vec4 fragColor;
@@ -556,7 +557,7 @@ module.exports = (gl,front)=>{
     return mix(m0, m1, smoothstep(0., 1., f));
   }
   float wave(float t) {
-    return sampleAudio(t, 5, 0);
+    return sampleAudio(t, int(audioIndex), 0);
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
@@ -573,7 +574,7 @@ module.exports = (gl,front)=>{
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(gi*2 + ch), t);
     float rate = playbackRate;
-    // if(rand(seed+0.) < 0.2) rate *= 1.5; // TODO: be stable (gi,ch)
+    // if(rand(seed+0.) < 0.2) rate *= 1.3; // TODO: be stable (gi,ch)
     p = vec4(offset + rand(seed+1.)*offsetRandom, d*rate, t, d);
     q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }
@@ -624,7 +625,7 @@ module.exports = (gl,front)=>{
     }
     fragColor = coord.y < 0. ? result / float(grains) : result;
   }
-  `,rect,["samples","tex","audio","grainDur","offset","offsetRandom","playbackRate","randoms"]);
+  `,rect,["samples","tex","audio","grainDur","offset","offsetRandom","playbackRate","randoms","audioIndex"]);
 
   return o;
 };

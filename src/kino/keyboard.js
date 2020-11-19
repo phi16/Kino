@@ -33,21 +33,35 @@ module.exports = (o)=>{
 
   const outNode = (_=>{
     const n = S.node();
-    /* const c = S.X.createConvolver();
+    const c = S.X.createConvolver();
     const b = S.X.createBuffer(2, S.X.sampleRate*4, S.X.sampleRate);
     const f0 = b.getChannelData(0);
     const f1 = b.getChannelData(1);
-    let u = 0;
+    let u = Math.PI/4;
     for(let i=0;i<S.X.sampleRate*4;i++) {
       const t = i/S.X.sampleRate;
-      const amp = Math.exp(-t*0.05) * Math.sin(u*100*6) + Math.sin(t*2*6) * Math.exp(-t*0.08) + Math.exp(-t*2.00);
-      u += (Math.random() * 2 - 1) * 0.4;
+      const amp = i == 0 ? 1 : Math.exp(-Math.max(0,t-0.5)*8) * Math.sin(t*440*6) * 0.3;
       f0[i] = amp * Math.cos(u);
       f1[i] = amp * Math.sin(u);
+      u += (Math.random() * 2 - 1) * 0.4;
     }
     c.buffer = b;
-    c.connect(n); */
+    c.connect(n);
     return n;
+
+    /* const src = S.X.createGain();
+    const F1 = S.X.createBiquadFilter();
+    F1.type = "bandpass";
+    F1.frequency.value = 300;
+    F1.Q.value = 40;
+
+    const F2 = S.X.createBiquadFilter();
+    F2.type = "bandpass";
+    F2.frequency.value = 2750;
+    F2.Q.value = 40;
+    src.connect(F1).connect(n);
+    src.connect(F2).connect(n);
+    return src; */
   })();
   const synths = {};
   function retainNote(p, f) {
@@ -59,6 +73,7 @@ module.exports = (o)=>{
     let volume = 0, volumeMult = 1/(f*0.005);
     const touches = {};
     const n = {
+      id: Math.random(),
       touches: _=>touches,
       shape: _=>volume,
       level: 0,
@@ -162,16 +177,16 @@ module.exports = (o)=>{
                 const center = Math.abs(y) < 3;
                 const p = i*6 + (i%2 == 0 ? 1 : 0) - j*2 - 8;
                 const cp = (p%12+12)%12;
-                const hue = x*0.02+y/24-0.2;
+                const hue = x*0.02+y*0.05-0.2;
                 R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,synths[p]?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
                 if(synths[p]) {
                   const syn = synths[p];
                   let level = 0;
                   Object.keys(syn.touches()).forEach(k=>{
-                    level += Math.max(0, -touchPanels[k].d) * touchPanels[k].vel * 50.0;
+                    if(touchPanels[k].d < 0) level += 1.0;
                   });
-                  syn.level += (level - syn.level) * (level==0 ? 0.2 : 0.05);
-                  R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,(1-Math.exp(-syn.level))*0.5).fill(hue,1,syn.shape());
+                  syn.level += (level - syn.level) * 0.2;
+                  R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,(1-Math.exp(-syn.level))*0.85).fill(hue,1,syn.shape());
                 }
               }
             }

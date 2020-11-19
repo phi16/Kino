@@ -3,6 +3,7 @@ module.exports = {
     let domain = e=>({ x: e.clientX, y: e.clientY });
     let state = "release", pos = { x:0, y:0 }, force = 0;
     document.addEventListener("mousedown",e=>{
+      if(e.button != 0) return;
       pos = domain(e);
       if(pos.active) {
         state = "start";

@@ -9,10 +9,11 @@ module.exports = (o)=>{
     "AmebientSamplePack/Oneshot/bell_a.wav",
     "AmebientSamplePack/SE/draft_normal.wav",
     "AmebientSamplePack/SE/thunder_normal.wav",
-    "TA_MK_STAB_9_A.wav",
     "BKAYE_brass_pad_G.wav",
     "glsl_inst0.wav",
     "glsl_dist.wav",
+    "voice1622.wav",
+    "voice1630.wav",
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
@@ -50,10 +51,12 @@ module.exports = (o)=>{
       G.color.color(0,0,0,0);
       G.color();
     });
+    let aix = 7;// [4,6,7][Math.floor(Math.random()*3)];
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
         G.granular.samples(samples);
+        G.granular.audioIndex(aix);
         G.granular.offset(0.0);
         G.granular.offsetRandom(0.1);
         G.granular.grainDur((Math.random()+0.5)/(f/440));
@@ -70,7 +73,7 @@ module.exports = (o)=>{
     };
     const lpf = S.X.createBiquadFilter();
     lpf.type = "lowpass";
-    lpf.frequency.value = 2000.0;
+    lpf.frequency.value = 4000.0;
     const hpf = S.X.createBiquadFilter();
     hpf.type = "highpass";
     hpf.frequency.value = 20.0;
