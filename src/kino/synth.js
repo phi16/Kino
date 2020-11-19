@@ -9,19 +9,18 @@ module.exports = (o, outNode)=>{
   G.synthParams(samples, unitNotes, grains);
 
   const raws = [
-    "AmebientSamplePack/Oneshot/bell_a.wav",
-    "AmebientSamplePack/SE/draft_normal.wav",
-    "AmebientSamplePack/SE/thunder_normal.wav",
-    "BKAYE_brass_pad_G.wav",
-    "glsl_inst0.wav",
-    "glsl_dist.wav",
-    "voice1622.wav",
-    "voice1630.wav",
+    { freq: 440,   name: "AmebientSamplePack/Oneshot/bell_a.wav" },
+    { freq: 495,   name: "BKAYE_brass_pad_G.wav" },
+    { freq: 288,   name: "glsl_inst0.wav" },
+    { freq: 192.5, name: "glsl_dist.wav" },
+    { freq: 349.5, name: "voice1622.wav" },
+    { freq: 282.5, name: "voice1627.wav" },
+    { freq: 356,   name: "voice1630.wav" },
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
     const j = i;
-    S.load("sound/" + raws[j]).then(b=>{
+    S.load("sound/" + raws[j].name).then(b=>{
       audioBuffer.set(j*128+0,  b.getChannelData(0));
       audioBuffer.set(j*128+64, b.getChannelData(1));
     });
@@ -39,10 +38,11 @@ module.exports = (o, outNode)=>{
     const n = S.X.createScriptProcessor(samples, 0, 2);
     const notes = new Float32Array(unitNotes*2); // (freq, gain)
     for(let i=0;i<unitNotes;i++) notes[i*2] = 1;
+    const aix = 6;
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
-        G.granular.audioIndex(7);
+        G.granular.audioIndex(aix);
         G.granular.offset(0.0);
         G.granular.offsetRandom(0.1);
         G.granular.baseGrainDur((Math.random()+0.5)*2);
@@ -66,13 +66,12 @@ module.exports = (o, outNode)=>{
     for(let i=1;i<unitNotes;i++) {
       const j = i;
       noteCandidates.push({
-        freq: f=>{ notes[j*2+0] = f/220; },
+        freq: f=>{ notes[j*2+0] = f/raws[aix].freq; },
         gain: g=>{ notes[j*2+1] = g; }
       });
     }
-    L.add("New Synth Acquired");
+    L.add("New Synth Acquired.");
   }
-  createSynth();
 
   function createNote(f) {
     if(noteCandidates.length == 0) createSynth();
