@@ -62,6 +62,14 @@ module.exports = o=>{
             R.X.moveTo(I.width-M.hPad, M.vPad);
             R.X.lineTo(I.width-M.hPad, I.height-M.vPad);
           }).stroke(1,0,0.2,1.0);
+
+          // Waveform
+          R.shape(_=>{
+            R.X.moveTo(0,1000);
+            for(let i=0;i<S.voiceFreqs.length;i++) {
+              R.X.lineTo(i,-S.voiceFreqs[i]);
+            }
+          }).stroke(1,0,0.1,1.0);
         });
       });
     });

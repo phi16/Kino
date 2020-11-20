@@ -9,16 +9,19 @@ module.exports = (o, outNode)=>{
   G.synthParams(samples, unitNotes, grains);
 
   const raws = [
-    { freq: 440,   name: "AmebientSamplePack/Oneshot/bell_a.wav" },
-    { freq: 495,   name: "BKAYE_brass_pad_G.wav" },
-    { freq: 288,   name: "glsl_inst0.wav" },
-    { freq: 192.5, name: "glsl_dist.wav" },
-    { freq: 349.5, name: "voice1622.wav" },
-    { freq: 282.5, name: "voice1627.wav" },
-    { freq: 356,   name: "voice1630.wav" },
+    { freq: 440,    name: "AmebientSamplePack/Oneshot/bell_a.wav" },
+    { freq: 495,    name: "BKAYE_brass_pad_G.wav" },
+    { freq: 288,    name: "glsl_inst0.wav" },
+    { freq: 192.5,  name: "glsl_dist.wav" },
+    { freq: 349.5,  name: "voice1622.wav" },
+    { freq: 282.5,  name: "voice1627.wav" },
+    { freq: 656,    name: "whistle_low.wav" },
+    { freq: 1216.5, name: "whistle_high.wav" },
+    { freq: 356,    name: "voice1630.wav" },
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
+    if(i >= 8) break;
     const j = i;
     S.load("sound/" + raws[j].name).then(b=>{
       audioBuffer.set(j*128+0,  b.getChannelData(0));

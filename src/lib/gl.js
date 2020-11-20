@@ -617,6 +617,7 @@ module.exports = (gl,front)=>{
     float singleDur = mix(1.0, 0.5, window) * grainDur;
     if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
     startTime += rand(vec2(waveIx,0) + randoms)*grainDur; // randomize phase
+    // ^ TODO
     if(distance(note.x, prevNote.x) > 0.00001) {
       // Prepare for the next note
       q0.x = q1.x = 0.;
