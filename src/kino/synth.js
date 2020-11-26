@@ -15,9 +15,9 @@ module.exports = (o, outNode)=>{
     { freq: 192.5,  name: "glsl_dist.wav" },
     { freq: 349.5,  name: "voice1622.wav" },
     { freq: 282.5,  name: "voice1627.wav" },
+    { freq: 356,    name: "voice1630.wav" },
     { freq: 656,    name: "whistle_low.wav" },
     { freq: 1216.5, name: "whistle_high.wav" },
-    { freq: 356,    name: "voice1630.wav" },
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {

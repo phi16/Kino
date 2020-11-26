@@ -2,6 +2,22 @@ const X = new AudioContext();
 const master = X.createGain();
 master.gain.value = 1.0;
 master.connect(X.destination);
+(async _=>{
+  return;
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  for(let i=0;i<devices.length;i++) {
+    const d = devices[i];
+    if(d.kind == "audiooutput" && d.label.indexOf("VoiceMeeter Input") != -1) {
+      const dest = X.createMediaStreamDestination();
+      master.connect(dest);
+      const outAudio = document.createElement("audio");
+      await outAudio.setSinkId(d.deviceId);
+      outAudio.srcObject = dest.stream;
+      outAudio.play();
+      break;
+    }
+  }
+})();
 const comp = X.createDynamicsCompressor();
 comp.connect(master);
 
@@ -26,7 +42,7 @@ navigator.mediaDevices.getUserMedia({audio:true}).then(ms=>{
     currentFreq.f += (maxFreq - currentFreq.f) * 0.2;
     currentFreq.f1 += (currentFreq.f - currentFreq.f1) * 0.2;
     currentFreq.s *= 0.1;
-    currentFreq.s = Math.max(currentFreq.s, Math.exp(-Math.abs(currentFreq.f1-currentFreq.f)*0.1));
+    currentFreq.s = Math.max(currentFreq.s, Math.exp(-Math.abs(currentFreq.f1-currentFreq.f)*0.1) * Math.exp(Math.min(0, maxValue+40)));
   }, 16);
   const g = X.createGain();
   g.gain.value = 0;

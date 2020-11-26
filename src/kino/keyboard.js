@@ -184,8 +184,11 @@ module.exports = (o)=>{
                 const cp = (p%12+12)%12;
                 const hue = x*0.02+y*0.05-0.2;
                 R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,synths[p]?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
-                const str = Math.exp(-Math.abs(vf.p-p)*2) * vf.s;
-                R.polyOutline(x*s,y*s,0.5*s*shapeDist(x,y),6,0,0.8).fill(1,0,str,1);
+                const vdi = Math.abs(vf.p-p);
+                if(vdi < 1) {
+                  const str = (1 - vdi) * vf.s;
+                  R.polyOutline(x*s,y*s,0.5*s*shapeDist(x,y),6,0,0.8).fill(1,0,str,1);
+                }
                 if(synths[p]) {
                   const syn = synths[p];
                   let level = 0;

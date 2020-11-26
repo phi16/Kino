@@ -62,14 +62,6 @@ module.exports = o=>{
             R.X.moveTo(I.width-M.hPad, M.vPad);
             R.X.lineTo(I.width-M.hPad, I.height-M.vPad);
           }).stroke(1,0,0.2,1.0);
-
-          // Waveform
-          R.shape(_=>{
-            R.X.moveTo(0,1000);
-            for(let i=0;i<S.voiceFreqs.length;i++) {
-              R.X.lineTo(i,-S.voiceFreqs[i]);
-            }
-          }).stroke(1,0,0.1,1.0);
         });
       });
     });
@@ -115,6 +107,58 @@ module.exports = o=>{
 
   R.onRender(render);
   R.onEffect(effect);
+
+  const rhy = S.node();
+  let kg, hg;
+  I.onPad(function*(k,v) {
+    if(k == 0) {
+      kg.setTargetAtTime(0, S.X.currentTime, 0.01);
+      yield;
+      kg.setTargetAtTime(1, S.X.currentTime, 0.01);
+    } else if(k == 2) {
+      hg.setTargetAtTime(0, S.X.currentTime, 0.01);
+      yield;
+      hg.setTargetAtTime(0.3, S.X.currentTime, 0.01);
+    }
+  });
+  S.load("./sound/SONNY_D_kick_07.wav").then(k=>{
+    const n = S.X.createGain();
+    n.connect(rhy);
+    kg = n.gain;
+    let lastIx = 0;
+    R.onRender(_=>{
+      const bt = S.X.currentTime*2;
+      const t = Math.floor(bt);
+      if(t != lastIx) {
+        const kn = S.X.createBufferSource();
+        kn.buffer = k;
+        kn.connect(n);
+        kn.start(t*0.5+0.25);
+        lastIx++;
+      }
+    });
+  });
+  S.load("./sound/PMET_Hi_Hat_02.wav").then(k=>{
+    const f = S.X.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 5000;
+    const n = S.X.createGain();
+    n.gain.value = 0.3;
+    n.connect(f).connect(rhy);
+    hg = n.gain;
+    let lastIx = 0;
+    R.onRender(_=>{
+      const bt = S.X.currentTime*2;
+      const t = Math.floor(bt);
+      if(t != lastIx) {
+        const kn = S.X.createBufferSource();
+        kn.buffer = k;
+        kn.connect(n);
+        kn.start(t*0.5+0.5);
+        lastIx++;
+      }
+    });
+  });
 
   L.add("Launched.");
   setTimeout(_=>{
