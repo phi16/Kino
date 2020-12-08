@@ -173,7 +173,7 @@ module.exports = (o)=>{
         R.blend("lighter",_=>{
           R.translate(I.width/2,I.height/2).with(_=>{
             const vf = S.voiceFreq();
-            vf.p = Math.log2(vf.f/440) * 12 - 24;
+            vf.p = Math.log2(vf.f/440) * 12 - 12;
             for(let i=-5;i<6;i++) {
               for(let j=-3;j<4;j++) {
                 const x = i*1.5;
@@ -186,8 +186,9 @@ module.exports = (o)=>{
                 R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,synths[p]?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
                 const vdi = Math.abs(vf.p-p);
                 if(vdi < 1) {
-                  const str = (1 - vdi) * vf.s;
-                  R.polyOutline(x*s,y*s,0.5*s*shapeDist(x,y),6,0,0.8).fill(1,0,str,1);
+                  let str = 1 - vdi;
+                  str = str*str*(3-2*str);
+                  R.polyOutline(x*s,y*s,0.5*s*shapeDist(x,y),6,0,0.8).fill(1,0,str*vf.s,1);
                 }
                 if(synths[p]) {
                   const syn = synths[p];
@@ -213,7 +214,7 @@ module.exports = (o)=>{
               t.m += ((t.d>0 ? 1 : 0.5) - t.m) * 0.4;
               R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y)*t.m,6,0,1-scale*0.3).fill(1,0,0.1*Math.pow(scale, 0.4));
             });
-            const centerFreq = 440*2/3*4;
+            const centerFreq = 440*2/3*2;
             const vCenter = (Math.log2(vf.f/centerFreq))*s*3;
             const vOffset = I.height*Math.sqrt(3)/6/2;
             R.line(vCenter-vOffset,-I.height/2,vCenter+vOffset,I.height/2).stroke(0,0,vf.s,1);

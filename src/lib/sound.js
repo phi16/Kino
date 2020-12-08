@@ -24,7 +24,7 @@ comp.connect(master);
 // Voice Audio Analyzer
 const fftSize = 2048;
 const freqs = new Float32Array(fftSize);
-let currentFreq = { f: 1, f1: 1, s: 0 };
+let currentFreq = { f: 1, s: 0 };
 navigator.mediaDevices.getUserMedia({audio:true}).then(ms=>{
   const s = X.createMediaStreamSource(ms);
   const a = X.createAnalyser();
@@ -38,11 +38,24 @@ navigator.mediaDevices.getUserMedia({audio:true}).then(ms=>{
         maxValue = freqs[i];
       }
     }
-    const maxFreq = maxIndex/fftSize * X.sampleRate / 2;
-    currentFreq.f += (maxFreq - currentFreq.f) * 0.2;
-    currentFreq.f1 += (currentFreq.f - currentFreq.f1) * 0.2;
-    currentFreq.s *= 0.1;
-    currentFreq.s = Math.max(currentFreq.s, Math.exp(-Math.abs(currentFreq.f1-currentFreq.f)*0.1) * Math.exp(Math.min(0, maxValue+40)));
+    let sumIndex = 0, sumWeight = 0;
+    for(let i=-10;i<=10;i++) {
+      let j = i + maxIndex;
+      if(j < 0 || freqs.length <= j) continue;
+      let w = freqs[j] + 50;
+      if(w > 0) {
+        sumIndex += j * w;
+        sumWeight += w;
+      }
+    }
+    if(sumWeight < 0.0001) {
+      currentFreq.s *= 0.5;
+    } else {
+      const centerIndex = sumIndex / sumWeight;
+      const centerFreq = centerIndex / fftSize * X.sampleRate / 2;
+      currentFreq.f = centerFreq;
+      currentFreq.s = 1;
+    }
   }, 16);
   const g = X.createGain();
   g.gain.value = 0;

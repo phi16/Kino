@@ -584,7 +584,7 @@ module.exports = (gl,front)=>{
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(waveIx), t);
     float rate = basePlaybackRate * note.x;
-    // if(rand(seed+0.) < 0.2) rate *= 1.3; // TODO: be stable (gi,ch)
+    // if(rand(seed+0.) < 0.5) rate *= 1.3; // TODO: be stable (waveIx)
     p = vec4(offset + rand(seed+1.)*offsetRandom, d*rate, t, d);
     q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
   }
@@ -672,7 +672,7 @@ module.exports = (gl,front)=>{
       fragColor = texelFetch(tex, ivec2(x,y), 0);
     } else {
       vec4 result = vec4(0.);
-      for(int i=y;i>=grains;i-=2) { // TODO
+      for(int i=y;i>=grains;i-=2) { // TODO: reduce
         result += texelFetch(tex, ivec2(x,i), 0);
       }
       result /= float(grains) / 2.;
