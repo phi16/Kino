@@ -63,7 +63,7 @@ module.exports = (o)=>{
 
     const lpf = S.X.createBiquadFilter();
     lpf.type = "lowpass";
-    lpf.frequency.value = 4000.0;
+    lpf.frequency.value = 10000.0;
     const hpf = S.X.createBiquadFilter();
     hpf.type = "highpass";
     hpf.frequency.value = 20.0;
@@ -77,18 +77,17 @@ module.exports = (o)=>{
     if(synths[p]) return synths[p].acquire();
     const s = Synth.note(f);
     let count = 0;
-    let volume = 0, volumeMult = 1/(f*0.005);
+    let vel0 = 0, vel1 = 0, vel2 = 0, velM = 0;
+    let volL = 0, volH = 0;
+    let volume = 0, volumeMult = Math.pow(1/(f*0.005), 0.2);
     const touches = {};
     const n = {
       id: Math.random(),
       touches: _=>touches,
-      shape: _=>volume,
+      shape: _=>[volL, volH],
       level: 0,
       press: touch=>{
-        let d = touch.d;
-        let target = Math.max(0, d) * 1.5;
-        volume += (target - volume) * touch.vel * (d < 0 ? -d : 0.1);
-        s.gain(volume*volumeMult);
+        vel0 += touch.vel;
       },
       acquire: _=>{
         count++;
@@ -100,11 +99,29 @@ module.exports = (o)=>{
       release: key=>{
         delete touches[key];
         count--;
+      },
+      step: dt=>{
+        velM = Math.max(velM, vel0);
+        volH *= Math.exp(-dt*8);
         if(count == 0) {
-          if(volume < 0.01) {
-            delete synths[p];
-            s.disconnect();
-          }
+          volL *= Math.exp(-dt*volH*Math.exp(-volL*8)*8);
+          if(volL < 0.1) volL *= Math.exp(-dt*2);
+          volume = volL + volH;
+          vel1 = vel2;
+          velM = 0;
+        } else {
+          vel1 += (vel0 - vel1) * Math.exp(-dt*200);
+          vel2 += (vel1 - vel2) * Math.exp(-dt*200);
+          const eff = 1 - Math.exp(-velM*4);
+          volL += (vel2 - volL) * eff;
+          volH += Math.max(0, vel0 - vel2) * eff;
+          volume = volL + volH;
+          vel0 = 0;
+        }
+        s.gain(volume*volumeMult);
+        if(count == 0 && volume < 0.001) {
+          delete synths[p];
+          s.disconnect();
         }
       }
     };
@@ -117,7 +134,7 @@ module.exports = (o)=>{
   const touchPanels = {};
   I.onTouch(function*(){
     let c = yield;
-    while(c.force < 20) c = yield;
+    // while(c.force < 20) c = yield;
     if(c.x < hPadding || c.y < vPadding || c.x > I.width-hPadding || c.y > I.height-vPadding) return;
     const panel = panelAt(c);
     const note = retainNote(panel.p, panel.f);
@@ -127,7 +144,7 @@ module.exports = (o)=>{
     touch.update = _=>{
       touch.x = (c.x-panel.cx)/panelScale;
       touch.y = (c.y-panel.cy)/panelScale;
-      touch.d = Math.sqrt(touch.x*touch.x + touch.y*touch.y) - 0.4;
+      touch.d = -1; // Math.sqrt(touch.x*touch.x + touch.y*touch.y) - 0.4;
       touch.vel = Math.pow(Math.max(0,c.force-40)*0.0015, 2);
     };
     touchPanels[key] = touch;
@@ -154,6 +171,10 @@ module.exports = (o)=>{
   let displayTime = 0;
   return {
     render: (dt,hPad,vPad)=>{
+      for(const p in synths) {
+        const s = synths[p];
+        s.step(dt);
+      }
       hPadding = hPad, vPadding = vPad;
       displayTime += dt;
       for(let i=0;i<touchCount.length;i++) {
@@ -183,21 +204,23 @@ module.exports = (o)=>{
                 const p = i*6 + (i%2 == 0 ? 1 : 0) - j*2 - 8;
                 const cp = (p%12+12)%12;
                 const hue = x*0.02+y*0.05-0.2;
-                R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,synths[p]?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
+                const syn = synths[p];
+                const shape = syn ? syn.shape() : [0,0];
+                R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,shape[0]>0.1?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
                 const vdi = Math.abs(vf.p-p);
                 if(vdi < 1) {
                   let str = 1 - vdi;
                   str = str*str*(3-2*str);
                   R.polyOutline(x*s,y*s,0.5*s*shapeDist(x,y),6,0,0.8).fill(1,0,str*vf.s,1);
                 }
-                if(synths[p]) {
-                  const syn = synths[p];
+                if(syn) {
                   let level = 0;
                   Object.keys(syn.touches()).forEach(k=>{
                     if(touchPanels[k].d < 0) level += 1.0;
                   });
                   syn.level += (level - syn.level) * 0.2;
-                  R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,(1-Math.exp(-syn.level))*0.85).fill(hue,1,syn.shape());
+                  R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0).fill(hue,1,shape[0]);
+                  R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.8).fill(hue,1,shape[1]);
                 }
               }
             }

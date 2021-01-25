@@ -18,8 +18,11 @@ master.connect(X.destination);
     }
   }
 })();
+const subGain = X.createGain();
+subGain.gain.value = 0.2;
 const comp = X.createDynamicsCompressor();
-comp.connect(master);
+subGain.connect(comp).connect(master);
+const soundOut = subGain;
 
 // Voice Audio Analyzer
 const fftSize = 2048;
@@ -30,6 +33,7 @@ navigator.mediaDevices.getUserMedia({audio:true}).then(ms=>{
   const a = X.createAnalyser();
   a.fftSize = fftSize*2;
   setInterval(_=>{
+    // console.log(comp.reduction); // TODO
     a.getFloatFrequencyData(freqs);
     let maxIndex = 0, maxValue = -Infinity;
     for(let i=0;i<freqs.length;i++) {
@@ -67,7 +71,7 @@ module.exports = {
   X,
   node: _=>{
     const g = X.createGain();
-    g.connect(comp);
+    g.connect(soundOut);
     return g;
   },
   load: async path=>{

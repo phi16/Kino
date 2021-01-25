@@ -134,6 +134,7 @@ module.exports = o=>{
     const n = S.X.createGain();
     n.connect(rhy);
     kg = n.gain;
+    kg.value = 0;
     let lastIx = 0;
     R.onRender(_=>{
       const bt = S.X.currentTime*2;
@@ -155,6 +156,7 @@ module.exports = o=>{
     n.gain.value = 0.3;
     n.connect(f).connect(rhy);
     hg = n.gain;
+    hg.value = 0;
     let lastIx = 0;
     R.onRender(_=>{
       const bt = S.X.currentTime*2;

@@ -177,6 +177,9 @@ module.exports = (gl,front)=>{
       };
       o[l].v2 = function(a) {
         task.push(_=>{setting(l, j, 2, a);});
+      };
+      o[l].v4 = function(a) {
+        task.push(_=>{setting(l, j, 4, a);});
       }
     }
     return o;
@@ -549,7 +552,7 @@ module.exports = (gl,front)=>{
   uniform float basePlaybackRate;
   uniform float audioIndex;
   uniform vec2 randoms;
-  uniform vec2 notes[32];
+  uniform vec4 notes[32];
   out vec4 fragColor;
   float rand(vec2 co){
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
@@ -571,22 +574,24 @@ module.exports = (gl,front)=>{
   }
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     // p: Offset, Duration, PlayOffset, PlayDuration
-    // q: Volume, WindowWidthRatio, 0, 0
+    // q: Volume, 1, FadeCut, 0
     if(p.w == 0.) return vec4(0.);
     vec4 r = (t - p.z) / p.w;
     vec4 u = abs(r - 0.5);
-    vec4 w = smoothstep(0., 0.5*q.y, 0.5-u);
+    bool fadeCut = q.z > 0.5;
+    if(fadeCut) u = max(vec4(0.), r - 0.5);
+    vec4 w = smoothstep(0., 0.5, 0.5-u);
     vec4 tt = p.x + p.y*r;
     vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
     return waves * q.x * w;
   }
-  void gen(float t, float d, int waveIx, vec2 note, out vec4 p, out vec4 q) {
+  void gen(float t, float d, int waveIx, vec2 note, bool fadeCut, out vec4 p, out vec4 q) {
     float dur = samples / sampleRate;
     vec2 seed = vec2(float(waveIx), t);
     float rate = basePlaybackRate * note.x;
     // if(rand(seed+0.) < 0.5) rate *= 0.5; // TODO: be stable (waveIx)
     p = vec4(offset + rand(seed+1.)*offsetRandom, d*rate, t, d);
-    q = vec4(rand(seed+2.)*0.5+0.5, window, 0., 0.);
+    q = vec4(rand(seed+2.)*0.0+1.0, 1.0, fadeCut ? 1. : 0., 0.);
   }
   void main() {
     float dur = samples / sampleRate;
@@ -611,35 +616,37 @@ module.exports = (gl,front)=>{
     vec4 q0 = texelFetch(tex, dataOffset + ivec2(1, 0), 0);
     vec4 p1 = texelFetch(tex, dataOffset + ivec2(2, 0), 0);
     vec4 q1 = texelFetch(tex, dataOffset + ivec2(3, 0), 0);
-    vec2 note = notes[waveIx/8], prevNote = q1.zw;
-    float grainDur = baseGrainDur/note.x;
+    vec4 note = notes[waveIx/8];
+    vec2 curNote = note.xy, prevNote = note.zw;
+    float grainDur = baseGrainDur/curNote.x;
     float startTime = p1.z + p1.w * mix(1.0, 0.5, q1.y);
     float singleDur = mix(1.0, 0.5, window) * grainDur;
     if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
     startTime += rand(vec2(waveIx,0) + randoms)*grainDur; // randomize phase
     // ^ TODO
-    if(distance(note.x, prevNote.x) > 0.00001) {
+    bool fadeCut = false;
+    if(distance(curNote.x, prevNote.x) > 0.00001) {
       // Prepare for the next note
       q0.x = q1.x = 0.;
       startTime = 0.;
+      fadeCut = true;
     }
     startTime = max(0., startTime); // may occur from sudden grainDur decreasing
     if(startTime < t) {
       float i = floor((t-startTime) / singleDur);
       p0 = p1, q0 = q1;
-      gen(startTime+i*singleDur, grainDur, waveIx, note, p1, q1);
+      gen(startTime+i*singleDur, grainDur, waveIx, curNote, fadeCut, p1, q1);
       if(i > 0.5) {
         i--;
-        gen(startTime+i*singleDur, grainDur, waveIx, note, p0, q0);
+        gen(startTime+i*singleDur, grainDur, waveIx, curNote, fadeCut, p0, q0);
       }
     }
 
     if(wave) {
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      result = v*8.*mix(prevNote.y, note.y, coord.x*0.5+0.5);
+      result = v*2.*mix(prevNote.y, curNote.y, coord.x*0.5+0.5);
     } else {
       p0.z -= dur, p1.z -= dur;
-      q1.zw = note;
       int xi = x%4;
       if(xi == 0) result = p0;
       if(xi == 1) result = q0;
