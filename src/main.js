@@ -66,7 +66,8 @@ module.exports = o=>{
           // Waveform
           R.shape(_=>{
             R.X.moveTo(0,1000);
-            for(let i=0;i<S.voiceFreqs.length;i++) {
+            const m = Math.min(S.voiceFreqs.length, I.width);
+            for(let i=0;i<m;i++) {
               R.X.lineTo(i,-S.voiceFreqs[i]);
             }
           }).stroke(1,0,0.05);
