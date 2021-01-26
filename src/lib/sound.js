@@ -19,7 +19,7 @@ master.connect(X.destination);
   }
 })();
 const subGain = X.createGain();
-subGain.gain.value = 0.2;
+subGain.gain.value = 0.1;
 const comp = X.createDynamicsCompressor();
 subGain.connect(comp).connect(master);
 const soundOut = subGain;

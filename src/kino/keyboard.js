@@ -90,6 +90,7 @@ module.exports = (o)=>{
         vel0 += touch.vel;
       },
       acquire: _=>{
+        if(count == 0) vel1 = vel2 = velM = 0;
         count++;
         return n;
       },
@@ -101,20 +102,19 @@ module.exports = (o)=>{
         count--;
       },
       step: dt=>{
-        velM = Math.max(velM, vel0);
+        velM = Math.max(velM, vel2);
         volH *= Math.exp(-dt*8);
         if(count == 0) {
-          volL *= Math.exp(-dt*volH*Math.exp(-volL*8)*8);
-          if(volL < 0.1) volL *= Math.exp(-dt*2);
+          volL *= Math.exp(-dt*volH*(1-Math.exp(-velM*1))*8);
+          if(volL < 0.075) volL *= Math.exp(-dt*2);
           volume = volL + volH;
           vel1 = vel2;
-          velM = 0;
         } else {
           vel1 += (vel0 - vel1) * Math.exp(-dt*200);
           vel2 += (vel1 - vel2) * Math.exp(-dt*200);
-          const eff = 1 - Math.exp(-velM*4);
+          const eff = 1 - Math.exp(-velM*1);
           volL += (vel2 - volL) * eff;
-          volH += Math.max(0, vel0 - vel2) * eff;
+          volH += Math.max(0, vel0 - vel2);
           volume = volL + volH;
           vel0 = 0;
         }
@@ -145,7 +145,7 @@ module.exports = (o)=>{
       touch.x = (c.x-panel.cx)/panelScale;
       touch.y = (c.y-panel.cy)/panelScale;
       touch.d = -1; // Math.sqrt(touch.x*touch.x + touch.y*touch.y) - 0.4;
-      touch.vel = Math.pow(Math.max(0,c.force-40)*0.0015, 2);
+      touch.vel = Math.pow(c.force*0.003, 2);
     };
     touchPanels[key] = touch;
     note.register(key);
@@ -206,7 +206,7 @@ module.exports = (o)=>{
                 const hue = x*0.02+y*0.05-0.2;
                 const syn = synths[p];
                 const shape = syn ? syn.shape() : [0,0];
-                R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,shape[0]>0.1?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
+                R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,shape[0]>0.075?1:0,(center?0.03:0.06) + touchBright[cp]*0.1);
                 const vdi = Math.abs(vf.p-p);
                 if(vdi < 1) {
                   let str = 1 - vdi;

@@ -16,7 +16,6 @@ module.exports = (o, outNode)=>{
     { freq: 282.5,  name: "voice1627.wav" },
     { freq: 356,    name: "voice1630.wav" },
     { freq: 361,    name: "voice1400.wav" },
-    { freq: 495/4,  name: "harpsidrone.wav" },
     { freq: 442,    name: "voice1401.wav" },
     { freq: 656,    name: "whistle_low.wav" },
     { freq: 1216.5, name: "whistle_high.wav" },
@@ -48,14 +47,14 @@ module.exports = (o, outNode)=>{
       notes[i*4+2] = 1;
       notes[i*4+3] = 0;
     }
-    const aix = 7;
+    const aix = 2;
     n.onaudioprocess = e=>{
       loopBuffer.render(_=>{
         G.granular.tex(loopBuffer.use());
         G.granular.audioIndex(aix);
         G.granular.offset(0.0);
         G.granular.offsetRandom(0.5);
-        G.granular.baseGrainDur((Math.random()+0.5)*2);
+        G.granular.baseGrainDur((Math.random()+0.5)*4);
         G.granular.basePlaybackRate(1);
         G.granular.notes.v4(notes);
         G.granular.audio(audioBuffer.use());
