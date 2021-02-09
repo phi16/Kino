@@ -5,8 +5,9 @@
   "scripts": {
     "start": "electron ."
   },
-  "devDependencies": {
+  "dependencies": {
     "electron": "^10.1.1",
+    "kino-core": "../kino-core",
     "node-sensel": "file:../node-sensel"
   }
 }

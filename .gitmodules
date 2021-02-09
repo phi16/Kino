@@ -1,0 +1,3 @@
+[submodule "node-sensel"]
+	path = node-sensel
+	url = git@github.com:phi16/node-sensel.git

@@ -1,7 +1,6 @@
 module.exports = (o, outNode)=>{
   const G = o.render.gl;
   const S = o.sound;
-  const I = o.input;
   const L = o.log;
   const samples = 2048;
   const unitNotes = 32; // minus 1
@@ -24,7 +23,7 @@ module.exports = (o, outNode)=>{
   for(let i=0;i<raws.length;i++) {
     if(i >= 8) break;
     const j = i;
-    S.load("sound/" + raws[j].name).then(b=>{
+    S.load("../sound/" + raws[j].name).then(b=>{
       audioBuffer.set(j*128+0,  b.getChannelData(0));
       audioBuffer.set(j*128+64, b.getChannelData(1));
     });
