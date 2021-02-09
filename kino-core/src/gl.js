@@ -54,6 +54,7 @@ module.exports = canvas=>{
   };
   const rect = buildMesh([-1,-1,1,-1,-1,1,1,1], ["vertex", 2]);
 
+  let targetResolution = null;
   function buildMaterial(vs,fs,mesh,params) {
     const prec = "#version 300 es\nprecision mediump float;\n";
     function buildShader(type,src) {
@@ -103,7 +104,7 @@ module.exports = canvas=>{
       gl.useProgram(p);
       task.forEach(t=>{t();});
       task = [];
-      setting("resolution", 0, 2, [width,height]);
+      setting("resolution", 0, 2, targetResolution ? targetResolution : [width,height]);
       const sec = (new Date() - startTime) / 1000;
       setting("time", 0, 1, [sec]);
       setting("randSeed", 0, 1, [randSeed]);
@@ -267,7 +268,9 @@ module.exports = canvas=>{
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.disable(gl.DEPTH_TEST);
         gl.viewport(0,0,w,h);
+        targetResolution = [w,h];
         e();
+        targetResolution = null;
         gl.viewport(0,0,width,height);
         gl.enable(gl.DEPTH_TEST);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
@@ -278,10 +281,10 @@ module.exports = canvas=>{
       use: _=>{
         return { texture: tex };
       },
-      pixels: (yi,hi)=>{
-        const b = new Float32Array(w*hi*4);
+      pixels: (wi,hi)=>{
+        const b = new Float32Array(wi*hi*4);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        gl.readPixels(0, yi, w, hi, gl.RGBA, gl.FLOAT, b);
+        gl.readPixels(0, 0, wi, hi, gl.RGBA, gl.FLOAT, b);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return b;
       },
@@ -308,8 +311,8 @@ module.exports = canvas=>{
       use: _=>{
         return buffers[0].use();
       },
-      pixels: (yi,hi)=>{
-        return buffers[0].pixels(yi,hi);
+      pixels: (wi,hi)=>{
+        return buffers[0].pixels(wi,hi);
       }
     };
   };
