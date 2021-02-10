@@ -1,9 +1,16 @@
+const props = [];
 const logs = [];
 module.exports = {
   add: t=>{
     let lastPos = 0;
     if(logs.length > 0 && logs[0].pos < lastPos) lastPos = logs[0].pos;
     logs.unshift({ text: t + "", pos: lastPos-1, time: 0 });
+  },
+  prop: (i,t)=>{
+    while(i >= props.length) {
+      props.push("");
+    }
+    props[i] = t;
   },
   render: R=>{
     R.blend("lighter",_=>{
@@ -18,6 +25,10 @@ module.exports = {
           logs.splice(i,1);
           i--;
         }
+      }
+      for(let i=0;i<props.length;i++) {
+        const u = props[i];
+        R.text(u,20,40+i*25,20).l().fill(0,0,0.5);
       }
     });
   }

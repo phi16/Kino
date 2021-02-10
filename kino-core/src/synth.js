@@ -8,8 +8,8 @@ module.exports = Kino=>{
   const rect = G.rect;
 
   const samples = 2048;
-  const units = 256;
-  const channels = 1;
+  const units = 512;
+  const channels = 8;
 
   const library = `
   #define sampleRate 48000.
@@ -128,7 +128,7 @@ module.exports = Kino=>{
       vec4 q1 = texelFetch(tex, ivec2(4, y), 0);
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      result = v * 0.5;
+      result = v * 0.5 * 0.0;
     }
 
     fragColor = result;
@@ -181,6 +181,7 @@ module.exports = Kino=>{
   const n = S.X.createScriptProcessor(samples, 0, channels*2);
   let t = 0;
   n.onaudioprocess = e=>{
+    const st = new Date();
     memoryBuffer.render(_=>{
       step.tex(memoryBuffer.use());
       step.randoms(Math.random(), Math.random());
@@ -203,6 +204,8 @@ module.exports = Kino=>{
       const c = e.outputBuffer.getChannelData(i);
       c.set(b.subarray(i*samples, (i+1)*samples));
     }
+    const et = new Date();
+    L.prop(2, "synth: " + (et-st) + "ms");
   };
   const outNode = S.node();
   n.connect(outNode);

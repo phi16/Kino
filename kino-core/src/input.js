@@ -39,21 +39,21 @@ o.sensel = (_=>{
   const u = {};
   u.width = 230;
   u.height = 130;
+  u.states = { START: 1, MOVE: 2, END: 3 };
   u.touches = {};
 
   let sensel = { frame: _=>_ };
-  let states = { START: 1, MOVE: 2, END: 3 };
 
   const touches = u.touches;
   const touchListeners = [];
   const touchHandlers = {};
   u.use = (senselDevice,contactStates)=>{
     sensel = senselDevice;
-    states = contactStates;
+    u.states = contactStates;
     setInterval(_=>{
       sensel.frame(f=>{
         f.contact(c=>{
-          if(c.state == states.START) {
+          if(c.state == u.states.START) {
             touchHandlers[c.id] = [];
             for(let l of touchListeners) {
               const t = l();
@@ -61,7 +61,7 @@ o.sensel = (_=>{
               touchHandlers[c.id].push(t);
             }
           }
-          if(c.state == states.END) {
+          if(c.state == u.states.END) {
             delete touches[c.id];
           } else touches[c.id] = c;
           for(let t of touchHandlers[c.id]) {

@@ -6,7 +6,7 @@ const Kino = require('kino-core');
 const container = document.getElementById("container");
 Kino.container(container);
 window.addEventListener("resize", Kino.resize);
-require('./ui')(Kino);
+const ui = require('./ui')(Kino);
 require('./visual')(Kino);
 Kino.L.add("Launched.");
 
@@ -40,6 +40,10 @@ navigator.requestMIDIAccess({sysex: true}).then(midi=>{
 });
 
 Kino.I.keyboard.use(document);
+
+// Main
+const mixer = require('./mixer')(Kino);
+ui.mixerRender = mixer.render;
 
 // Voice Analyzer
 Kino.S.voiceAnalysis();

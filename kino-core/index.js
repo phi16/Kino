@@ -27,10 +27,14 @@ Kino.container = c=>{
   Kino.glRender = f=>{ glRender = f; };
 
   function render() {
+    const st = new Date();
     uiRender();
     Kino.L.render(R);
     uiBuffer.copyCanvas(ui);
     glRender(uiBuffer);
+    const et = new Date();
+    Kino.L.prop(1, "render: " + (et - st) + "ms");
+    Kino.L.prop(0, "comp: " + Math.floor(Kino.S.reduction()*100+0.5)/100 + "dB");
     requestAnimationFrame(render);
   }
   render();
