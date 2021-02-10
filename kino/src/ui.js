@@ -30,8 +30,21 @@ module.exports = Kino=>{
       R.scale(M.scale).translate(-M.w/2,-M.h/2).with(_=>{
         // Mixer
         o.mixerRender(M);
-        // Input Overlay
+        // Frame
+        R.shape(_=>{
+          R.X.rect(0, 0, I.width, I.height);
+          R.X.moveTo(0, M.vPad);
+          R.X.lineTo(I.width, M.vPad);
+          R.X.moveTo(0, I.height-M.vPad);
+          R.X.lineTo(I.width, I.height-M.vPad);
+          R.X.moveTo(M.hPad, M.vPad);
+          R.X.lineTo(M.hPad, I.height-M.vPad);
+          R.X.moveTo(I.width-M.hPad, M.vPad);
+          R.X.lineTo(I.width-M.hPad, I.height-M.vPad);
+        }).stroke(1,0,0.2,1);
+
         R.blend("lighter",_=>{
+          // Input Overlay
           R.translate(0, 0).with(_=>{
             for(let id in I.touches) {
               let c = I.touches[id];
@@ -39,18 +52,6 @@ module.exports = Kino=>{
               R.ellipse(c.x, c.y, c.minor_axis*p, c.major_axis*p, c.orientation*Math.PI/180).stroke(1,0,0.2,0.5);
             }
           });
-          R.shape(_=>{
-            R.X.rect(0, 0, I.width, I.height);
-            R.X.moveTo(0, M.vPad);
-            R.X.lineTo(I.width, M.vPad);
-            R.X.moveTo(0, I.height-M.vPad);
-            R.X.lineTo(I.width, I.height-M.vPad);
-            R.X.moveTo(M.hPad, M.vPad);
-            R.X.lineTo(M.hPad, I.height-M.vPad);
-            R.X.moveTo(I.width-M.hPad, M.vPad);
-            R.X.lineTo(I.width-M.hPad, I.height-M.vPad);
-          }).stroke(1,0,0.2,1);
-
           // Voice Spectrum
           const a = S.voiceFreqs;
           if(a) {

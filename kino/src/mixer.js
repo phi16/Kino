@@ -73,14 +73,17 @@ module.exports = Kino=>{
       if(p.active) return false;
       p.active = true;
       p.volume = 0;
-      p.shape.d = 6;
+      p.shape.d = 5;
       p.shape.l = 0;
       return true;
     };
     return p;
   };
   const parts = [];
-  for(let i=0;i<8;i++) parts.push(Part());
+  for(let i=0;i<9;i++) parts.push(Part());
+  const masterPart = parts[parts.length-1];
+  masterPart.activate();
+  masterPart.addVolume(1);
   function touchIndexOf(c) {
     if(0 < c.x && c.x < M.hPad) {
       const y = (c.y - M.vPad) / M.mixerH * parts.length;
@@ -151,12 +154,13 @@ module.exports = Kino=>{
       const n = parts.length;
       const u = h/n;
       R.shape(X=>{
-        for(let i=0;i<n-1;i++) {
+        for(let i=0;i<n-2;i++) {
           const y = (i+1)*u;
           X.moveTo(e,y);
           X.lineTo(w-e,y);
         }
       }).stroke(1,0,0.1,0.6);
+      R.line(0,(n-1)*u,w,(n-1)*u).stroke(1,0,0.2,1);
       for(let i=0;i<n;i++) {
         const s = parts[i];
         s.step();
