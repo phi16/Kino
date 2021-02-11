@@ -4,20 +4,57 @@ const X = new AudioContext();
 const master = X.createGain();
 master.gain.value = 1.0;
 master.connect(X.destination);
-const subGain = X.createGain();
-subGain.gain.value = 0.1;
 const comp = X.createDynamicsCompressor();
-subGain.connect(comp).connect(master);
-const soundOut = subGain;
+comp.connect(master);
+
+o.createEffector = _=>{
+  const i = X.createGain();
+
+  const l = X.createBiquadFilter();
+  l.type = "lowpass";
+  l.frequency.value = 20000;
+  const ld = X.createGain(), lw = X.createGain();
+  ld.gain.value = 1, lw.gain.value = 0;
+  const lo = X.createGain();
+  const h = X.createBiquadFilter();
+  h.type = "highpass";
+  h.frequency.value = 20;
+  const hd = X.createGain(), hw = X.createGain();
+  hd.gain.value = 1, hw.gain.value = 0;
+  const ho = X.createGain();
+  const g = X.createGain();
+  g.gain.value = 0;
+  i.connect(l).connect(lw).connect(lo);
+  i.connect(ld).connect(lo);
+  lo.connect(h).connect(hw).connect(ho);
+  lo.connect(hd).connect(ho);
+  ho.connect(g);
+  return {
+    in: i,
+    out: g,
+    lf: l.frequency,
+    ld: ld.gain,
+    lw: lw.gain,
+    hf: h.frequency,
+    hd: hd.gain,
+    hw: hw.gain,
+    g: g.gain
+  };
+};
+
+const masterNode = o.createEffector();
+masterNode.out.connect(comp);
+const soundOut = masterNode.in;
 
 o.X = X;
+o.masterNode = masterNode;
 o.reduction = _=>{
   return comp.reduction;
 };
 o.node = _=>{
-  const g = X.createGain();
-  g.connect(soundOut);
-  return g;
+  const n = o.createEffector();
+  n.out.connect(soundOut);
+  return n;
 };
 
 const loadedBuffers = {};

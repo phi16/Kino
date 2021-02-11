@@ -1,6 +1,7 @@
 module.exports = Kino=>{
   const o = {};
   o.mixerRender = _=>_;
+  o.effectorRender = _=>_;
 
   const R = Kino.R;
   const S = Kino.S;
@@ -16,7 +17,9 @@ module.exports = Kino=>{
   M.mh = M.h + M.frame*2;
   M.ox = -M.mw/2 + M.frame;
   M.oy = -M.mh/2 + M.frame;
-  M.mixerH = M.h - M.vPad*2;
+  M.mainW = M.w - M.hPad*2;
+  M.mainH = M.h - M.vPad*2;
+  M.sideX = M.hPad + M.mainW;
 
   let prevTime = new Date();
   Kino.uiRender(_=>{
@@ -28,8 +31,9 @@ module.exports = Kino=>{
     R.clear();
     R.translate(R.w/2, R.h/2).with(_=>{
       R.scale(M.scale).translate(-M.w/2,-M.h/2).with(_=>{
-        // Mixer
+        // Main
         o.mixerRender(M);
+        o.effectorRender(M);
         // Frame
         R.shape(_=>{
           R.X.rect(0, 0, I.width, I.height);

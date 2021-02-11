@@ -44,6 +44,12 @@ Kino.I.keyboard.use(document);
 // Main
 const mixer = require('./mixer')(Kino);
 ui.mixerRender = mixer.render;
+const effector = require('./effector')(Kino);
+ui.effectorRender = effector.render;
+mixer.effector = effector;
+effector.mixer = mixer;
+const generators = require('./generator')(Kino);
+mixer.generators = generators;
 
 // Voice Analyzer
 Kino.S.voiceAnalysis();
@@ -65,7 +71,7 @@ Kino.I.keyboard.on(function*(k) {
 });
 S.load("SONNY_D_kick_07.wav").then(k=>{
   const n = S.X.createGain();
-  n.connect(rhy);
+  n.connect(rhy.in);
   kg = n.gain;
   kg.value = 0;
   let lastIx = 0;
@@ -87,7 +93,7 @@ S.load("PMET_Hi_Hat_02.wav").then(k=>{
   f.frequency.value = 5000;
   const n = S.X.createGain();
   n.gain.value = 0.3;
-  n.connect(f).connect(rhy);
+  n.connect(f).connect(rhy.in);
   hg = n.gain;
   hg.value = 0;
   let lastIx = 0;

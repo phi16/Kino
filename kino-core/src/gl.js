@@ -94,8 +94,17 @@ module.exports = canvas=>{
         gl.uniform1i(locs[name], ix);
       } else {
         const func = "uniform" + n + "fv";
-        const as = [];
-        for(let i=0;i<args.length;i++)as.push(args[i]);
+        const type = args.constructor.name;
+        let as = null;
+        if(type == "Array" || type == "Float32Array") {
+          as = args;
+        } else if(type == "Object") {
+          as = [];
+          for(let i=0;i<args.length;i++)as.push(args[i]);
+        } else {
+          console.log("Argument Type Mismatched: " + type);
+          as = args;
+        }
         gl[func](locs[name],as);
       }
     }
@@ -115,6 +124,9 @@ module.exports = canvas=>{
       const j = i;
       o[l] = function() {
         task.push(_=>{setting(l, j, arguments.length, arguments);});
+      };
+      o[l].v1 = function(a) {
+        task.push(_=>{setting(l, j, 1, a);});
       };
       o[l].v2 = function(a) {
         task.push(_=>{setting(l, j, 2, a);});

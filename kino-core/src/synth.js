@@ -9,14 +9,22 @@ module.exports = Kino=>{
 
   const samples = 2048;
   const units = 512;
+  const allocBlock = 16;
   const channels = 8;
+  const paramCount = 32;
 
   const library = `
   #define sampleRate 48000.
   #define samples ${samples}.
   #define units ${units}.
+  #define channels ${channels}
+  #define allocBlock ${allocBlock}
+  #define allocUnit ${units / allocBlock}
   ${G.library}
   uniform sampler2D audio;
+  uniform float region[${channels*2 + allocBlock}];
+  uniform vec4 blocks[${allocBlock}];
+  uniform vec4 params[${paramCount * allocBlock}];
   float sampleAudio(float t, int i, int ch) {
     float s = t * sampleRate;
     int s0 = int(s), s1 = int(s) + 1;
@@ -34,7 +42,7 @@ module.exports = Kino=>{
   const granular = `
   uniform vec2 randoms;
   float wave(float t) {
-    return sampleAudio(t, 0, 0);
+    return sin(t*440.*3.14159265*2.); // sampleAudio(t, 0, 0);
   }
   // p: Offset, Duration, PlayOffset, PlayDuration
   // q: Volume, 0, 0, 0
@@ -49,7 +57,8 @@ module.exports = Kino=>{
   }
   void gen(float t, float d, int i, out vec4 p, out vec4 q) {
     vec2 seed = vec2(float(i), t);
-    p = vec4(rand(seed+1.), d, t, d);
+    float rate = pow(2., float(i/32)/12.0);
+    p = vec4(rand(seed+1.), d*rate, t, d);
     q = vec4(1., 0., 0., 0.);
   }`;
 
@@ -80,29 +89,28 @@ module.exports = Kino=>{
   void main() {
     float dur = samples / sampleRate;
     ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
-    int x = ci.x, y = ci.y;
+    int x = ci.x, y = ci.y, blockIndex = y / allocUnit;
     vec4 result = vec4(0);
 
-    vec4 m = texelFetch(tex, ivec2(0, y), 0);
-    if(m.x < 0.5) {
-      // Granular Generator
-      vec4 p0 = texelFetch(tex, ivec2(1, y), 0);
-      vec4 q0 = texelFetch(tex, ivec2(2, y), 0);
-      vec4 p1 = texelFetch(tex, ivec2(3, y), 0);
-      vec4 q1 = texelFetch(tex, ivec2(4, y), 0);
+    vec4 b0 = blocks[blockIndex];
+    int type = int(b0.x);
+    if(type == 1 || true) { // Grain
+      vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
+      vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
+      vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
+      vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
       float t = dur;
       ${grainStep}
       p0.z -= dur, p1.z -= dur;
-      if(x == 1) result = p0;
-      if(x == 2) result = q0;
-      if(x == 3) result = p1;
-      if(x == 4) result = q1;
+      if(x == 0) result = p0;
+      if(x == 1) result = q0;
+      if(x == 2) result = p1;
+      if(x == 3) result = q1;
     }
-    if(x == 0) result = m;
 
     fragColor = result;
   }
-  `,rect,["tex","randoms"]);
+  `,rect,["tex","randoms","params","blocks"]);
 
   const render = G.buildMaterial(vert,`
   ${library}
@@ -113,27 +121,28 @@ module.exports = Kino=>{
   void main() {
     float dur = samples / sampleRate;
     ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
-    int x = ci.x, y = ci.y;
+    int x = ci.x, y = ci.y, blockIndex = y / allocUnit;
     float t = (coord.x*0.5+0.5) * dur;
     float dt = 1. / sampleRate;
     vec4 ts = t + vec4(0,1,2,3) * dt;
     vec4 result = vec4(0);
 
-    vec4 m = texelFetch(tex, ivec2(0, y), 0);
-    if(m.x < 0.5) {
-      // Granular Generator
-      vec4 p0 = texelFetch(tex, ivec2(1, y), 0);
-      vec4 q0 = texelFetch(tex, ivec2(2, y), 0);
-      vec4 p1 = texelFetch(tex, ivec2(3, y), 0);
-      vec4 q1 = texelFetch(tex, ivec2(4, y), 0);
+    vec4 b0 = blocks[blockIndex];
+    int type = int(b0.x);
+    if(type == 1 || true) { // Grain
+      vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
+      vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
+      vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
+      vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      result = v * 0.5 * 0.0;
+      result = v * 0.05;
     }
 
-    fragColor = result;
+    int ch = int(region[channels*2 + y / allocUnit]);
+    fragColor = ch == -1 ? vec4(0) : result;
   }
-  `,rect,["tex","audio"]);
+  `,rect,["tex","audio","region","params","blocks"]);
 
   const accum = G.buildMaterial(vert,`
   ${library}
@@ -141,18 +150,69 @@ module.exports = Kino=>{
   uniform sampler2D tex;
   out vec4 fragColor;
   void main() {
+    fragColor = vec4(0);
     ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
     int x = ci.x, y = ci.y;
-    if(y < int(resolution.y) / 4) {
-      vec4 result = vec4(0);
-      y = y % 2 + (y / 2) * 8;
-      for(int i=0;i<4;i++) {
-        result += texelFetch(tex, ivec2(x, y + 2*i), 0);
-      }
-      fragColor = result;
+    int ch = int(region[channels*2 + y / allocUnit]);
+    if(ch == -1) return;
+    int r = int(region[ch]);
+    if(r == -1) return;
+    r *= allocUnit;
+    int s = int(region[channels + ch]) * allocUnit;
+    y -= r;
+    if(y >= s / 4) return;
+    vec4 result = vec4(0);
+    y = y % 2 + r + (y / 2) * 8;
+    for(int i=0;i<4;i++) {
+      result += texelFetch(tex, ivec2(x, y + 2*i), 0);
     }
+    fragColor = result;
   }
-  `,rect,["tex"]);
+  `,rect,["tex","region"]);
+
+  const aggregate = G.buildMaterial(vert,`
+  ${library}
+  in vec2 coord;
+  uniform sampler2D tex;
+  out vec4 fragColor;
+  void main() {
+    fragColor = vec4(0);
+    ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
+    int x = ci.x, y = ci.y;
+    if(y >= channels*2) return;
+    int r = int(region[y / 2]);
+    if(r == -1) return;
+    r *= allocUnit;
+    y = y % 2 + r;
+    vec4 result = texelFetch(tex, ivec2(x, y), 0);
+    fragColor = result;
+  }
+  `,rect,["tex","region"]);
+
+  const shift = G.buildMaterial(vert,`
+  ${library}
+  in vec2 coord;
+  uniform sampler2D tex;
+  uniform vec2 move;
+  out vec4 fragColor;
+  void main() {
+    float dur = samples / sampleRate;
+    ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
+    int x = ci.x, y = ci.y, blockIndex = y / allocUnit;
+    vec4 result = vec4(0);
+    int first = int(move.x), count = int(move.y);
+    if(blockIndex >= first) {
+      int i = blockIndex + count;
+      if(first <= i && i < allocBlock) {
+        y += count * allocUnit;
+        result = texelFetch(tex, ivec2(x, y), 0);
+      }
+    } else {
+      result = texelFetch(tex, ivec2(x, y), 0);
+    }
+    fragColor = result;
+  }
+  `,rect,["tex","move"]);
 
   const raws = [
     { freq: 440,    name: "AmebientSamplePack/Oneshot/bell_a.wav" },
@@ -176,28 +236,144 @@ module.exports = Kino=>{
     });
   }
 
+  const generators = new Array(channels);
   const memoryBuffer = G.DataLoopBuffer(8, units);
   const waveBuffer = G.DataLoopBuffer(samples/4, units);
+
+  const blockParams = new Float32Array(4 * allocBlock); // genId, 0, 0, 0
+  const synthParams = new Float32Array(4 * paramCount * allocBlock);
+  // Consistency: all used blocks align consecutively from head
+  const allocRegion = new Float32Array(channels*2 + allocBlock);
+  for(let i=0;i<32;i++) allocRegion[i] = -1;
+  let allocatedBlocks = 0;
+
+  const Allocator = {
+    allocBlock: (i,g)=>{
+      if(allocatedBlocks == allocBlock) {
+        L.add("Memory blocks exhausted.");
+        return false;
+      }
+      let first = allocRegion[i], count = allocRegion[i+channels];
+      if(first == -1) {
+        // First Allocation
+        count = 0;
+        for(let j=i+1;j<channels;j++) {
+          if(allocRegion[j] != -1) {
+            first = allocRegion[j];
+            break;
+          }
+        }
+        if(first == -1) {
+          first = 0;
+          for(let j=i-1;j>-1;j--) {
+            if(allocRegion[j] != -1) {
+              first = allocRegion[j] + allocRegion[j+channels];
+              break;
+            }
+          }
+        }
+      }
+      // Shift 1 block
+      const loc = first+count;
+      memoryBuffer.render(_=>{
+        shift.tex(memoryBuffer.use());
+        shift.move(loc, -1);
+        shift();
+      });
+      for(let j=allocBlock-1;j>loc;j--) {
+        allocRegion[channels*2 + j] = allocRegion[channels*2 + j-1];
+        for(let k=0;k<4;k++) {
+          blockParams[j*4+k] = blockParams[(j-1)*4+k];
+        }
+        for(let k=0;k<4*paramCount;k++) {
+          synthParams[j*4*paramCount+k] = synthParams[(j-1)*4*paramCount+k];
+        }
+      }
+      blockParams[loc*4+0] = g;
+      blockParams[loc*4+1] = 0;
+      blockParams[loc*4+2] = 0;
+      blockParams[loc*4+3] = 0;
+      for(let k=0;k<4*paramCount;k++) {
+        synthParams[loc*4*paramCount+k] = 0;
+      }
+      for(let j=i+1;j<channels;j++) {
+        if(allocRegion[j] == -1) continue;
+        allocRegion[j] += 1;
+      }
+      allocRegion[i] = first;
+      allocRegion[i+channels] = count+1;
+      allocRegion[channels*2 + loc] = i;
+      allocatedBlocks++;
+      return true;
+    },
+    releaseAll: i=>{
+      let first = allocRegion[i], count = allocRegion[i+channels];
+      // Shift back blocks
+      memoryBuffer.render(_=>{
+        shift.tex(memoryBuffer.use());
+        shift.move(first, count);
+        shift();
+      });
+      for(let j=first;j<allocBlock;j++) {
+        if(j+count < allocBlock) {
+          allocRegion[channels*2 + j] = allocRegion[channels*2 + j+count];
+          for(let k=0;k<4;k++) {
+            blockParams[j*4+k] = blockParams[(j+count)*4+k];
+          }
+          for(let k=0;k<4*paramCount;k++) {
+            synthParams[j*4*paramCount+k] = synthParams[(j+count)*4*paramCount+k];
+          }
+        } else { // Out of bounds
+          allocRegion[channels*2 + j] = -1;
+          for(let k=0;k<4;k++) {
+            blockParams[j*4+k] = 0;
+          }
+          for(let k=0;k<4*paramCount;k++) {
+            synthParams[j*4*paramCount+k] = 0;
+          }
+        }
+      }
+      for(let j=i+1;j<channels;j++) {
+        if(allocRegion[j] == -1) continue;
+        allocRegion[j] -= count;
+      }
+      allocRegion[i] = -1;
+      allocRegion[i+channels] = -1;
+      allocatedBlocks -= count;
+    }
+  };
+
   const n = S.X.createScriptProcessor(samples, 0, channels*2);
-  let t = 0;
   n.onaudioprocess = e=>{
+    for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
     const st = new Date();
     memoryBuffer.render(_=>{
       step.tex(memoryBuffer.use());
       step.randoms(Math.random(), Math.random());
+      step.params.v4(synthParams);
+      step.blocks.v4(blockParams);
       step();
     });
     waveBuffer.render(_=>{
       render.tex(memoryBuffer.use());
       render.audio(audioBuffer.use());
+      render.region.v1(allocRegion);
+      render.params.v4(synthParams);
+      render.blocks.v4(blockParams);
       render();
     });
     for(let i=0;i<4;i++) { // 4^4 < units/2
       waveBuffer.render(_=>{
         accum.tex(waveBuffer.use());
+        accum.region.v1(allocRegion);
         accum();
       });
     }
+    waveBuffer.render(_=>{
+      aggregate.tex(waveBuffer.use());
+      aggregate.region.v1(allocRegion);
+      aggregate();
+    });
 
     const b = waveBuffer.pixels(samples/4, channels*2);
     for(let i=0;i<channels*2;i++) {
@@ -207,8 +383,28 @@ module.exports = Kino=>{
     const et = new Date();
     L.prop(2, "synth: " + (et-st) + "ms");
   };
-  const outNode = S.node();
-  n.connect(outNode);
+  const splitter = S.X.createChannelSplitter(channels*2);
+  n.connect(splitter);
+  const channelMerger = new Array(channels);
+  o.connect = (index,gen,node)=>{
+    if(index < 0 || channels <= index) return;
+    const merger = S.X.createChannelMerger(2);
+    splitter.connect(merger, index*2+0, 0);
+    splitter.connect(merger, index*2+1, 1);
+    merger.connect(node.in);
+    channelMerger[index] = merger;
+    L.add(`Synth ${index} acquired with type ${gen.name}.`);
+    const g = gen.acquire(_=>Allocator.allocBlock(index, gen.id));
+    generators[index] = g;
+    return g;
+  };
+  o.disconnect = index=>{
+    L.add(`Synth ${index} released.`);
+    Allocator.releaseAll(index);
+    channelMerger[index].disconnect();
+    channelMerger[index] = null;
+    generators[index] = null;
+  };
 
   return o;
 };
