@@ -22,10 +22,10 @@ module.exports = Kino=>{
   #define allocUnit ${units / allocBlock}
   #define paramCount ${paramCount}
   ${G.library}
-  uniform sampler2D audio;
   uniform float region[${channels*2 + allocBlock}];
   uniform vec4 blocks[${allocBlock}];
   uniform vec4 params[${paramCount * allocBlock}];
+  uniform sampler2D audio;
   float sampleAudio(float t, int i, int ch) {
     float s = t * sampleRate;
     int s0 = int(s), s1 = int(s) + 1;
@@ -36,7 +36,41 @@ module.exports = Kino=>{
     float m1 = texelFetch(audio, base + ivec2(s1/4%sw, s1/4/sw), 0)[s1%4];
     if(s0 < 0 || s0 >= 524288) m0 = 0.;
     if(s1 < 0 || s1 >= 524288) m1 = 0.;
-    return mix(m0, m1, smoothstep(0., 1., f));
+    return mix(m0, m1, f);
+  }
+  uniform sampler2D noise;
+  float sampleNoise(float t, float freq0, float freq1) {
+    float s = t * sampleRate;
+    int s0 = int(s), s1 = int(s) + 1;
+    s0 = ((s0%131072) + 131072) % 131072;
+    s1 = ((s1%131072) + 131072) % 131072;
+    float f = s - floor(s);
+    // float e0 = clamp(log2(freq0/20.) / 10., 0., 1.) * 63.;
+    // float e1 = clamp(log2(freq1/20.) / 10., 0., 1.) * 63.;
+    float e0 = clamp((freq0-20.)/(20000.-20.), 0., 1.) * 63.;
+    float e1 = clamp((freq1-20.)/(20000.-20.), 0., 1.) * 63.;
+    int e00 = int(e0);
+    int e01 = e00 + 1;
+    float e0f = smoothstep(0., 1., e0 - floor(e0));
+    int e10 = int(e1);
+    int e11 = e10 + 1;
+    float e1f = smoothstep(0., 1., e1 - floor(e1));
+    if(e01 >= 64) e01 = 63;
+    if(e11 >= 64) e11 = 63;
+    int sw = 2048;
+    ivec2 o0 = ivec2(s0/4%sw, s0/4/sw);
+    ivec2 o1 = ivec2(s1/4%sw, s1/4/sw);
+    float m000 = texelFetch(noise, ivec2(0, e00*16) + o0, 0)[s0%4];
+    float m001 = texelFetch(noise, ivec2(0, e00*16) + o1, 0)[s1%4];
+    float m010 = texelFetch(noise, ivec2(0, e01*16) + o0, 0)[s0%4];
+    float m011 = texelFetch(noise, ivec2(0, e01*16) + o1, 0)[s1%4];
+    float m100 = texelFetch(noise, ivec2(0, e10*16) + o0, 0)[s0%4];
+    float m101 = texelFetch(noise, ivec2(0, e10*16) + o1, 0)[s1%4];
+    float m110 = texelFetch(noise, ivec2(0, e11*16) + o0, 0)[s0%4];
+    float m111 = texelFetch(noise, ivec2(0, e11*16) + o1, 0)[s1%4];
+    float v0 = mix(mix(m000, m001, f), mix(m010, m011, f), e0f);
+    float v1 = mix(mix(m100, m101, f), mix(m110, m111, f), e1f);
+    return v1 - v0;
   }
   `;
 
@@ -120,6 +154,17 @@ module.exports = Kino=>{
       if(x == 1) result = q0;
       if(x == 2) result = p1;
       if(x == 3) result = q1;
+    } else if(type == 2) { // Cycle
+      vec4 q = texelFetch(tex, ivec2(0, y), 0);
+      vec4 pa = params[blockIndex*paramCount];
+      q.x += pa.x*dur + (pa.z-pa.x)*(pow(dur,3.) + pow(dur,4.)/2.);
+      q.x = fract(q.x);
+      result = q;
+    } else if(type == 3) { // Noise
+      vec4 q = texelFetch(tex, ivec2(0, y), 0);
+      q.x += dur;
+      q.x = mod(q.x, 131072./48000.);
+      result = q;
     }
 
     fragColor = result;
@@ -148,12 +193,34 @@ module.exports = Kino=>{
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
       result = v * mix(prevNote.y, curNote.y, coord.x*0.5+0.5);
+    } else if(type == 2) { // Cycle
+      vec4 q = texelFetch(tex, ivec2(0, y), 0);
+      vec4 pa = params[blockIndex*paramCount];
+      float s = mix(pa.w, pa.y, coord.x*0.5+0.5);
+      vec4 u = q.x + pa.x*ts + (pa.z-pa.x)*(pow(ts,vec4(3.)) + pow(ts,vec4(4.))/2.);
+      vec4 v = sin(u * 3.14159265*2.);
+      result = v * s;
+    } else if(type == 3) { // Noise
+      vec4 q = texelFetch(tex, ivec2(0, y), 0);
+      vec4 pa = params[blockIndex*paramCount];
+      vec4 ps = params[blockIndex*paramCount+1];
+      if(threadIndex < 2) {
+        vec4 v = vec4(0.);
+        float fx = mix(pa.z, pa.x, coord.x*0.5+0.5);
+        float fy = mix(pa.w, pa.y, coord.x*0.5+0.5);
+        float s = mix(ps.y, ps.x, coord.x*0.5+0.5);
+        v.x = sampleNoise(q.x + ts.x, fx, fy);
+        v.y = sampleNoise(q.x + ts.y, fx, fy);
+        v.z = sampleNoise(q.x + ts.z, fx, fy);
+        v.w = sampleNoise(q.x + ts.w, fx, fy);
+        result = v * s;
+      }
     }
 
     int ch = int(region[channels*2 + y / allocUnit]);
     fragColor = ch == -1 ? vec4(0) : result;
   }
-  `,rect,["tex","audio","randoms","region","params","blocks"]);
+  `,rect,["tex","audio","noise","randoms","region","params","blocks"]);
 
   const accum = G.buildMaterial(vert,`
   ${library}
@@ -243,6 +310,42 @@ module.exports = Kino=>{
       audioBuffer.set(j*128+64, b.getChannelData(1));
     });
   }
+
+  const noiseBuffer = G.DataBuffer(2048,1024);
+  (_=>{
+    const baseNoise = new Float32Array(2048*1024*4/64);
+    for(let i=0;i<baseNoise.length;i++) baseNoise[i] = Math.random()*2-1;
+    const b = new Float32Array(baseNoise.length);
+    for(let j=0;j<64;j++) {
+      // Biquad Filter (LowPass)
+      const freq = 20 + (20000-20) * (j/63.0); // 20 * Math.pow(2,j*10/63);
+      const q = 1;
+      const omega = 2 * Math.PI * freq / S.X.sampleRate;
+      const alpha = Math.sin(omega) / 2 / q;
+      const cw = Math.cos(omega);
+      let a0 = 1 + alpha, a1 = - 2 * cw, a2 = 1 - alpha;
+      let b0 = (1 - cw) / 2, b1 = 1 - cw, b2 = (1 - cw) / 2;
+      b0 /= a0, b1 /= a0, b2 /= a0, a1 /= a0, a2 /= a0;
+      let x0 = 0, x1 = 0, x2 = 0;
+      let y0 = 0, y1 = 0, y2 = 0;
+      function feed(v) {
+        x2 = x1;
+        x1 = x0;
+        x0 = v;
+        y2 = y1;
+        y1 = y0;
+        y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      }
+      for(let i=b.length*(1-1/8);i<b.length;i++) {
+        feed(baseNoise[i]);
+      }
+      for(let i=0;i<b.length;i++) {
+        feed(baseNoise[i]);
+        b[i] = y0;
+      }
+      noiseBuffer.set(j*1024/64, b);
+    }
+  })();
 
   const generators = new Array(channels);
   const memoryBuffer = G.DataLoopBuffer(8, units);
@@ -374,6 +477,7 @@ module.exports = Kino=>{
     waveBuffer.render(_=>{
       render.tex(memoryBuffer.use());
       render.audio(audioBuffer.use());
+      render.noise(noiseBuffer.use());
       render.randoms.v2(randoms);
       render.region.v1(allocRegion);
       render.params.v4(synthParams);
@@ -433,10 +537,5 @@ module.exports = Kino=>{
     merger[index].disconnect();
     generators[index] = null;
   };
-
-  window.testS = _=>{
-    console.log(synthParams);
-  };
-
   return o;
 };

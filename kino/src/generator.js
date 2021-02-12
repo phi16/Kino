@@ -22,5 +22,11 @@ module.exports = Kino=>{
   Gen("Grain", o=>{
     require('./generators/grain')(Kino,o);
   });
+  Gen("Cycle", o=>{
+    require('./generators/cycle')(Kino,o);
+  });
+  Gen("Noise", o=>{
+    require('./generators/noise')(Kino,o);
+  });
   return gens;
 };
