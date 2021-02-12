@@ -18,7 +18,7 @@ module.exports = Kino=>{
     const u = {};
     let b = 0;
     u.b = 0;
-    u.activate = _=>{
+    u.activateBase = _=>{
       b += 1;
       u.b = 1;
       return _=>{
@@ -26,6 +26,7 @@ module.exports = Kino=>{
         if(b == 0) u.b = 0;
       };
     };
+    u.activate = u.activateBase;
     return u;
   };
   const Title = p=>{
@@ -33,17 +34,23 @@ module.exports = Kino=>{
     let prevName = p.name;
     let nameSize = 1;
     let pull = 0, pullM = 0;
-    const act = u.activate;
     u.activate = _=>{
       if(p.generator) nameSize = 1.25;
-      return act();
+      const a = u.activateBase();
+      return _=>{
+        a();
+        if(u.b == 0) p.node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
+      };
     };
     u.move = (dx,dy,f)=>{
       if(p.generator) {
         pull += dy;
-        if(pull > M.mainH-M.vPad*2) {
+        let ratio = pull / (M.mainH-M.vPad*2);
+        p.node.mute.setTargetAtTime(1.-Math.exp(-Math.max(0, 0.9-ratio)), S.X.currentTime, 0.01);
+        if(ratio > 1) {
           p.disconnect();
           if(activePart && activePart.p == p) {
+            // Release all
             activePart = null;
             activeLine.v = -1;
             activeLine.w = true;
@@ -63,9 +70,10 @@ module.exports = Kino=>{
       pullM += (pull - pullM) / 2.0;
       const offset = M.vPad;
       if(pullM > offset) {
+        const f = x=>x*x*(3-2*x);
         const py = M.vPad*0.5;
         const ph = M.mainH-M.vPad*2;
-        const pm = Math.pow((pullM-offset)/(ph-offset), 3) * ph + py;
+        const pm = f((pullM-offset)/(ph-offset)) * ph + py;
         const pr = (1 - Math.exp(-(pullM-offset)*0.05)) * 1;
         if(pr > 0.01) {
           R.line(0,py,0,pm-pr).stroke(0,0,0.4,0.6);
@@ -167,6 +175,7 @@ module.exports = Kino=>{
 
   const activeLine = { i: -1, l: 1, v: 1, w: false /* is waiting */ };
   let activePart = null;
+  let partReleased = true, effectTouches = 0;
   o.present = (p,i,l)=>{
     const u = { p, i, l };
     activePart = u;
@@ -175,12 +184,18 @@ module.exports = Kino=>{
     activeEffectLoc = 0;
     activeEffects = [];
     for(let i=0;i<effects.length;i++) activeEffects.push(effects[i](p));
+    partReleased = false;
+    effectTouches = 0;
     return _=>{
       if(activePart != u) return;
-      activePart = null;
-      activeLine.v = -1;
-      activeLine.w = true;
+      partReleased = true;
+      if(effectTouches == 0) o.hideEffector();
     };
+  };
+  o.hideEffector = _=>{
+    activePart = null;
+    activeLine.v = -1;
+    activeLine.w = true;
   };
   function touchIndexOf(c) {
     if(M.sideX < c.x) {
@@ -200,12 +215,19 @@ module.exports = Kino=>{
     if(touchIndex == -1) return;
     const ae = activeEffects[touchIndex];
     const e = ae.activate();
+    effectTouches++;
     // Slider
     let nc = null;
     while(nc = yield) {
       ae.move(nc.x - c.x, nc.y - c.y, nc.force);
       c = nc;
-      if(c.state == I.states.END) e();
+      if(c.state == I.states.END) {
+        e();
+        if(ap == activePart) {
+          effectTouches--;
+          if(effectTouches == 0 && partReleased) o.hideEffector();
+        }
+      }
     }
   });
   o.render = M2=>{
@@ -235,14 +257,16 @@ module.exports = Kino=>{
       R.rect(0, 0, M.hPad, M.mainH).clip(_=>{
         if(activePart) activeEffectLoc += (1 - activeEffectLoc) / 2.0;
         else activeEffectLoc += (0 - activeEffectLoc) / 2.0;
-        const shift = (activeEffectLoc-1) * M.hPad;
-        for(let i=0;i<activeEffects.length;i++) {
-          const e = activeEffects[i];
-          R.translate(M.hPad/2+shift, (i+0.5)/effects.length*M.mainH).with(_=>{
-            e.render();
-          });
+        if(activeEffectLoc > 0.01) {
+          const shift = (activeEffectLoc-1) * M.hPad;
+          for(let i=activeEffects.length;i>-1;i--) { // Reverse order to display remove line on top
+            const e = activeEffects[i];
+            R.translate(M.hPad/2+shift, (i+0.5)/effects.length*M.mainH).with(_=>{
+              e.render();
+            });
+          }
+          R.line(M.hPad+shift,0,M.hPad+shift,M.mainH).stroke(0,0,0.2,1);
         }
-        R.line(M.hPad+shift,0,M.hPad+shift,M.mainH).stroke(0,0,0.2,1);
       });
     });
   };

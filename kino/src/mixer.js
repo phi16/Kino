@@ -37,6 +37,7 @@ module.exports = Kino=>{
       connected = true;
       p.generator = Y.connect(index, generatorBase, node);
       node.g.setTargetAtTime(p.volume, S.X.currentTime, 0.01);
+      node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
     };
     p.disconnect = _=>{
       connected = false;
@@ -46,6 +47,7 @@ module.exports = Kino=>{
       generatorBase = null;
       p.volume = 0;
       node.g.setTargetAtTime(0, S.X.currentTime, 0.01);
+      node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
     };
     p.volume = 0;
     p.addVolume = v=>{

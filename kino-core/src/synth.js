@@ -42,7 +42,7 @@ module.exports = Kino=>{
   const granular = `
   uniform vec2 randoms;
   float wave(float t) {
-    return sin(t*440.*3.14159265*2.); // sampleAudio(t, 0, 0);
+    return sampleAudio(t, 0, 0);
   }
   // p: Offset, Duration, PlayOffset, PlayDuration
   // q: Volume, 0, 0, 0
@@ -63,6 +63,10 @@ module.exports = Kino=>{
   }`;
 
   const grainStep = `
+  vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
+  vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
+  vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
+  vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
   float grainDur = 1.0;
   float startTime = p1.z + p1.w * 0.5;
   float singleDur = 0.5 * grainDur;
@@ -95,10 +99,6 @@ module.exports = Kino=>{
     vec4 b0 = blocks[blockIndex];
     int type = int(b0.x);
     if(type == 1 || true) { // Grain
-      vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
-      vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
-      vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
-      vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
       float t = dur;
       ${grainStep}
       p0.z -= dur, p1.z -= dur;
@@ -130,10 +130,6 @@ module.exports = Kino=>{
     vec4 b0 = blocks[blockIndex];
     int type = int(b0.x);
     if(type == 1 || true) { // Grain
-      vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
-      vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
-      vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
-      vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
       result = v * 0.05;
@@ -142,7 +138,7 @@ module.exports = Kino=>{
     int ch = int(region[channels*2 + y / allocUnit]);
     fragColor = ch == -1 ? vec4(0) : result;
   }
-  `,rect,["tex","audio","region","params","blocks"]);
+  `,rect,["tex","audio","randoms","region","params","blocks"]);
 
   const accum = G.buildMaterial(vert,`
   ${library}
@@ -347,16 +343,11 @@ module.exports = Kino=>{
   n.onaudioprocess = e=>{
     for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
     const st = new Date();
-    memoryBuffer.render(_=>{
-      step.tex(memoryBuffer.use());
-      step.randoms(Math.random(), Math.random());
-      step.params.v4(synthParams);
-      step.blocks.v4(blockParams);
-      step();
-    });
+    const randoms = [Math.random(), Math.random()];
     waveBuffer.render(_=>{
       render.tex(memoryBuffer.use());
       render.audio(audioBuffer.use());
+      render.randoms.v2(randoms);
       render.region.v1(allocRegion);
       render.params.v4(synthParams);
       render.blocks.v4(blockParams);
@@ -374,6 +365,13 @@ module.exports = Kino=>{
       aggregate.region.v1(allocRegion);
       aggregate();
     });
+    memoryBuffer.render(_=>{
+      step.tex(memoryBuffer.use());
+      step.randoms.v2(randoms);
+      step.params.v4(synthParams);
+      step.blocks.v4(blockParams);
+      step();
+    });
 
     const b = waveBuffer.pixels(samples/4, channels*2);
     for(let i=0;i<channels*2;i++) {
@@ -385,15 +383,18 @@ module.exports = Kino=>{
   };
   const splitter = S.X.createChannelSplitter(channels*2);
   n.connect(splitter);
-  const channelMerger = new Array(channels);
+  const merger = [];
+  for(let i=0;i<channels;i++) {
+    const m = S.X.createChannelMerger(2);
+    splitter.connect(m, i*2+0, 0);
+    splitter.connect(m, i*2+1, 1);
+    merger.push(m);
+  }
+  S.dummyOut(merger[0]);
   o.connect = (index,gen,node)=>{
     if(index < 0 || channels <= index) return;
-    const merger = S.X.createChannelMerger(2);
-    splitter.connect(merger, index*2+0, 0);
-    splitter.connect(merger, index*2+1, 1);
-    merger.connect(node.in);
-    channelMerger[index] = merger;
     L.add(`Synth ${index} acquired with type ${gen.name}.`);
+    merger[index].connect(node.in);
     const g = gen.acquire(_=>Allocator.allocBlock(index, gen.id));
     generators[index] = g;
     return g;
@@ -401,8 +402,7 @@ module.exports = Kino=>{
   o.disconnect = index=>{
     L.add(`Synth ${index} released.`);
     Allocator.releaseAll(index);
-    channelMerger[index].disconnect();
-    channelMerger[index] = null;
+    merger[index].disconnect();
     generators[index] = null;
   };
 

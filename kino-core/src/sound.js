@@ -6,6 +6,13 @@ master.gain.value = 1.0;
 master.connect(X.destination);
 const comp = X.createDynamicsCompressor();
 comp.connect(master);
+const dummy = X.createGain();
+dummy.gain.value = 0;
+dummy.connect(X.destination);
+
+o.dummyOut = n=>{
+  n.connect(dummy);
+};
 
 o.createEffector = _=>{
   const i = X.createGain();
@@ -38,7 +45,8 @@ o.createEffector = _=>{
     hf: h.frequency,
     hd: hd.gain,
     hw: hw.gain,
-    g: g.gain
+    g: g.gain,
+    mute: i.gain
   };
 };
 
@@ -130,9 +138,7 @@ o.voiceAnalysis = async _=>{
     o.voiceFreqs = freqs;
     o.peakFreq = currentFreq;
   }, 16);
-  const g = X.createGain();
-  g.gain.value = 0;
-  s.connect(a).connect(g).connect(X.destination);
+  s.connect(a).connect(dummy);
 };
 
 module.exports = o;
