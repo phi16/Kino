@@ -10,23 +10,17 @@ module.exports = Kino=>{
       u.id = j;
       u.name = n;
       u.alloc = a;
-      u.step = _=>_;
+      u.store = {
+        block: new Float32Array(0),
+        synth: new Float32Array(0)
+      };
       k(u);
       return u;
     };
     gens.push(o);
   };
   Gen("Grain", o=>{
-    o.alloc();
-  });
-  Gen("Cycle", o=>{
-    o.alloc();
-  });
-  Gen("Noise", o=>{
-    o.alloc();
-  });
-  Gen("Sample", o=>{
-    o.alloc();
+    require('./generators/grain')(Kino,o);
   });
   return gens;
 };

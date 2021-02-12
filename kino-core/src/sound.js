@@ -21,13 +21,13 @@ o.createEffector = _=>{
   l.type = "lowpass";
   l.frequency.value = 20000;
   const ld = X.createGain(), lw = X.createGain();
-  ld.gain.value = 1, lw.gain.value = 0;
+  ld.gain.value = 0, lw.gain.value = 1;
   const lo = X.createGain();
   const h = X.createBiquadFilter();
   h.type = "highpass";
   h.frequency.value = 20;
   const hd = X.createGain(), hw = X.createGain();
-  hd.gain.value = 1, hw.gain.value = 0;
+  hd.gain.value = 0, hw.gain.value = 1;
   const ho = X.createGain();
   const g = X.createGain();
   g.gain.value = 0;

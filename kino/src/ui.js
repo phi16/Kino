@@ -21,12 +21,18 @@ module.exports = Kino=>{
   M.mainH = M.h - M.vPad*2;
   M.sideX = M.hPad + M.mainW;
 
-  let prevTime = new Date();
-  Kino.uiRender(_=>{
-    const curTime = new Date();
-    const dt = (curTime - prevTime) / 1000;
-    prevTime = curTime;
+  let currentPart = null;
+  o.present = p=>{
+    if(currentPart == p) return;
+    if(currentPart != null) currentPart.onClose();
+    currentPart = p;
+    currentPart.onOpen();
+  };
+  o.release = p=>{
+    if(currentPart == p) currentPart = null;
+  };
 
+  Kino.uiRender(_=>{
     M.scale = Math.min(R.w/M.mw, R.h/M.mh);
     R.clear();
     R.translate(R.w/2, R.h/2).with(_=>{
@@ -34,6 +40,11 @@ module.exports = Kino=>{
         // Main
         o.mixerRender(M);
         o.effectorRender(M);
+        R.translate(M.hPad,M.vPad).with(_=>{
+          R.rect(0,0,M.mainW,M.mainH).clip(_=>{
+            if(currentPart) currentPart.generator.render(M);
+          });
+        });
         // Frame
         R.shape(_=>{
           R.X.rect(0, 0, I.width, I.height);

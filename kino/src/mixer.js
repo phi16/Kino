@@ -1,5 +1,6 @@
 module.exports = Kino=>{
   const o = {};
+  o.ui = null;
   o.effector = null;
   o.generators = null;
 
@@ -42,12 +43,22 @@ module.exports = Kino=>{
     p.disconnect = _=>{
       connected = false;
       Y.disconnect(index);
+      p.generator.disconnect();
       p.active = false;
       p.generator = null;
       generatorBase = null;
       p.volume = 0;
       node.g.setTargetAtTime(0, S.X.currentTime, 0.01);
       node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
+    };
+    p.uiOpen = false;
+    p.onOpen = _=>{
+      p.uiOpen = true;
+      p.generator.open();
+    };
+    p.onClose = _=>{
+      p.uiOpen = false;
+      p.generator.close();
     };
     p.volume = 0;
     p.addVolume = v=>{
@@ -66,11 +77,10 @@ module.exports = Kino=>{
       };
     };
 
-    let touchIndex = 0, touchCount = 0;
+    let touchCount = 0;
     const forces = {};
     p.touch = f=>{
-      const i = touchIndex;
-      touchIndex++;
+      const i = Math.random();
       touchCount++;
       forces[i] = f;
       return {
@@ -121,6 +131,18 @@ module.exports = Kino=>{
   const parts = [];
   for(let i=0;i<8;i++) parts.push(Part(i, S.node()));
   parts.push(Part(-1, S.masterNode));
+
+  let prevTime = new Date();
+  setInterval(_=>{
+    const curTime = new Date();
+    const dt = (curTime - prevTime) / 1000;
+    prevTime = curTime;
+    for(let i=0;i<parts.length-1;i++) {
+      const p = parts[i];
+      if(p.generator) p.generator.uiStep(dt);
+    }
+  }, 16);
+
   const masterPart = parts[parts.length-1];
   masterPart.activate();
   masterPart.addVolume(1);
@@ -199,6 +221,7 @@ module.exports = Kino=>{
                 g(), e();
                 p.connect();
                 p.shape.gb = 0;
+                o.ui.present(p);
               }
             }
           }
@@ -230,6 +253,7 @@ module.exports = Kino=>{
         const r = s.shape.d * 2;
         const l = s.shape.l * 1;
         const b = s.shape.b * 0.4;
+        const b2 = s.uiOpen ? 0.4 : 0;
         if(r > 0.01 || l > 0.01) {
           const v = lerp(w-e-l-r, e+r/2, s.shape.v);
           const c = lerp(v+r, w-e, s.shape.l);
@@ -243,8 +267,8 @@ module.exports = Kino=>{
               }
             });
           }
-          R.circle(c,y,l).stroke(1,0,0.2+b,0.6);
           R.line(v+r,y,c-l,y).stroke(1,0,0.2+b,0.6);
+          R.circle(c,y,l).stroke(1,0,0.2+b+b2,0.6);
           R.poly(v,y,r,4,0).stroke(1,0,0.3+b,0.6);
         }
       }

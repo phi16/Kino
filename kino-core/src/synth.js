@@ -20,6 +20,7 @@ module.exports = Kino=>{
   #define channels ${channels}
   #define allocBlock ${allocBlock}
   #define allocUnit ${units / allocBlock}
+  #define paramCount ${paramCount}
   ${G.library}
   uniform sampler2D audio;
   uniform float region[${channels*2 + allocBlock}];
@@ -41,25 +42,28 @@ module.exports = Kino=>{
 
   const granular = `
   uniform vec2 randoms;
+  #define grains 2
   float wave(float t) {
     return sampleAudio(t, 0, 0);
   }
   // p: Offset, Duration, PlayOffset, PlayDuration
-  // q: Volume, 0, 0, 0
+  // q: Volume, FadeCut, 0, 0
   vec4 grain(vec4 p, vec4 q, vec4 t) {
     if(p.w == 0.) return vec4(0.);
     vec4 r = (t - p.z) / p.w;
     vec4 u = abs(r - 0.5);
+    bool fadeCut = q.y > 0.5;
+    if(fadeCut) u = max(vec4(0.), r - 0.5);
     vec4 w = smoothstep(0., 0.5, 0.5-u);
     vec4 tt = p.x + p.y*r;
     vec4 waves = vec4(wave(tt.x), wave(tt.y), wave(tt.z), wave(tt.w));
     return waves * q.x * w;
   }
-  void gen(float t, float d, int i, out vec4 p, out vec4 q) {
+  void gen(float t, float d, int i, vec2 note, bool fadeCut, out vec4 p, out vec4 q) {
     vec2 seed = vec2(float(i), t);
-    float rate = pow(2., float(i/32)/12.0);
+    float rate = note.x;
     p = vec4(rand(seed+1.), d*rate, t, d);
-    q = vec4(1., 0., 0., 0.);
+    q = vec4(1., fadeCut ? 1. : 0., 0., 0.);
   }`;
 
   const grainStep = `
@@ -67,19 +71,28 @@ module.exports = Kino=>{
   vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
   vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
   vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
-  float grainDur = 1.0;
+  vec4 note = params[blockIndex*paramCount + threadIndex / grains];
+  vec2 curNote = note.xy, prevNote = note.zw;
+  float grainDur = 1.0 / curNote.x;
   float startTime = p1.z + p1.w * 0.5;
   float singleDur = 0.5 * grainDur;
   if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
   startTime += rand(vec2(0,y) + randoms)*grainDur;
-  startTime = max(0., startTime);
+  bool fadeCut = false;
+  if(distance(curNote.x, prevNote.x) > 0.00001) {
+    // Prepare for the next note
+    q0.x = q1.x = 0.;
+    startTime = 0.;
+    fadeCut = true;
+  }
+  startTime = max(0., startTime); // may occur from sudden grainDur decreasing
   if(startTime < t) {
     float i = floor((t-startTime) / singleDur);
     p0 = p1, q0 = q1;
-    gen(startTime+i*singleDur, grainDur, y, p1, q1);
+    gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p1, q1);
     if(i > 0.5) {
       i--;
-      gen(startTime+i*singleDur, grainDur, y, p0, q0);
+      gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p0, q0);
     }
   }
   `;
@@ -93,12 +106,13 @@ module.exports = Kino=>{
   void main() {
     float dur = samples / sampleRate;
     ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
-    int x = ci.x, y = ci.y, blockIndex = y / allocUnit;
+    int x = ci.x, y = ci.y;
+    int blockIndex = y / allocUnit, threadIndex = y - blockIndex * allocUnit;
     vec4 result = vec4(0);
 
     vec4 b0 = blocks[blockIndex];
     int type = int(b0.x);
-    if(type == 1 || true) { // Grain
+    if(type == 1) { // Grain
       float t = dur;
       ${grainStep}
       p0.z -= dur, p1.z -= dur;
@@ -121,7 +135,8 @@ module.exports = Kino=>{
   void main() {
     float dur = samples / sampleRate;
     ivec2 ci = ivec2((coord*0.5+0.5)*resolution);
-    int x = ci.x, y = ci.y, blockIndex = y / allocUnit;
+    int x = ci.x, y = ci.y;
+    int blockIndex = y / allocUnit, threadIndex = y - blockIndex * allocUnit;
     float t = (coord.x*0.5+0.5) * dur;
     float dt = 1. / sampleRate;
     vec4 ts = t + vec4(0,1,2,3) * dt;
@@ -129,10 +144,10 @@ module.exports = Kino=>{
 
     vec4 b0 = blocks[blockIndex];
     int type = int(b0.x);
-    if(type == 1 || true) { // Grain
+    if(type == 1) { // Grain
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
-      result = v * 0.05;
+      result = v * mix(prevNote.y, curNote.y, coord.x*0.5+0.5);
     }
 
     int ch = int(region[channels*2 + y / allocUnit]);
@@ -211,16 +226,13 @@ module.exports = Kino=>{
   `,rect,["tex","move"]);
 
   const raws = [
-    { freq: 440,    name: "AmebientSamplePack/Oneshot/bell_a.wav" },
+    { freq: 442,    name: "voice1401.wav" },
     { freq: 495,    name: "BKAYE_brass_pad_G.wav" },
+    { freq: 1216.5, name: "whistle_high.wav" },
+    { freq: 656,    name: "whistle_low.wav" },
+    { freq: 356,    name: "voice1630.wav" },
     { freq: 288,    name: "glsl_inst0.wav" },
     { freq: 192.5,  name: "glsl_dist.wav" },
-    { freq: 282.5,  name: "voice1627.wav" },
-    { freq: 356,    name: "voice1630.wav" },
-    { freq: 361,    name: "voice1400.wav" },
-    { freq: 442,    name: "voice1401.wav" },
-    { freq: 656,    name: "whistle_low.wav" },
-    { freq: 1216.5, name: "whistle_high.wav" },
   ];
   const audioBuffer = G.DataBuffer(2048,1024);
   for(let i=0;i<raws.length;i++) {
@@ -243,6 +255,19 @@ module.exports = Kino=>{
   for(let i=0;i<32;i++) allocRegion[i] = -1;
   let allocatedBlocks = 0;
 
+  function storeUpdate() {
+    L.add("Allocated blocks: " + allocatedBlocks);
+    for(let i=0;i<channels;i++) {
+      const g = generators[i];
+      if(g) {
+        const f = allocRegion[i], c = allocRegion[i+channels];
+        g.store = {
+          block: blockParams.subarray(f*4, (f+c)*4),
+          synth: synthParams.subarray(f*4*paramCount, (f+c)*4*paramCount)
+        };
+      }
+    }
+  }
   const Allocator = {
     allocBlock: (i,g)=>{
       if(allocatedBlocks == allocBlock) {
@@ -300,10 +325,12 @@ module.exports = Kino=>{
       allocRegion[i+channels] = count+1;
       allocRegion[channels*2 + loc] = i;
       allocatedBlocks++;
+      storeUpdate();
       return true;
     },
     releaseAll: i=>{
       let first = allocRegion[i], count = allocRegion[i+channels];
+      if(first == -1) return;
       // Shift back blocks
       memoryBuffer.render(_=>{
         shift.tex(memoryBuffer.use());
@@ -336,12 +363,12 @@ module.exports = Kino=>{
       allocRegion[i] = -1;
       allocRegion[i+channels] = -1;
       allocatedBlocks -= count;
+      storeUpdate();
     }
   };
 
   const n = S.X.createScriptProcessor(samples, 0, channels*2);
   n.onaudioprocess = e=>{
-    for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
     const st = new Date();
     const randoms = [Math.random(), Math.random()];
     waveBuffer.render(_=>{
@@ -372,6 +399,7 @@ module.exports = Kino=>{
       step.blocks.v4(blockParams);
       step();
     });
+    for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
 
     const b = waveBuffer.pixels(samples/4, channels*2);
     for(let i=0;i<channels*2;i++) {
@@ -404,6 +432,10 @@ module.exports = Kino=>{
     Allocator.releaseAll(index);
     merger[index].disconnect();
     generators[index] = null;
+  };
+
+  window.testS = _=>{
+    console.log(synthParams);
   };
 
   return o;

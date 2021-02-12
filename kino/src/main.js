@@ -46,7 +46,9 @@ const mixer = require('./mixer')(Kino);
 ui.mixerRender = mixer.render;
 const effector = require('./effector')(Kino);
 ui.effectorRender = effector.render;
+mixer.ui = ui;
 mixer.effector = effector;
+effector.ui = ui;
 effector.mixer = mixer;
 const generators = require('./generator')(Kino);
 mixer.generators = generators;
@@ -57,16 +59,17 @@ Kino.S.voiceAnalysis();
 // Test Beat Sound
 const S = Kino.S;
 const rhy = S.node();
+rhy.g.value = 1;
 let kg, hg;
 Kino.I.keyboard.on(function*(k) {
   if(k == 'q') {
     kg.setTargetAtTime(0, S.X.currentTime, 0.01);
     yield;
-    kg.setTargetAtTime(1, S.X.currentTime, 0.01);
+    kg.setTargetAtTime(0.2, S.X.currentTime, 0.01);
   } else if(k == 'w') {
     hg.setTargetAtTime(0, S.X.currentTime, 0.01);
     yield;
-    hg.setTargetAtTime(0.3, S.X.currentTime, 0.01);
+    hg.setTargetAtTime(0.06, S.X.currentTime, 0.01);
   }
 });
 S.load("SONNY_D_kick_07.wav").then(k=>{

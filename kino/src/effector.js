@@ -1,5 +1,6 @@
 module.exports = Kino=>{
   const o = {};
+  o.ui = null;
   o.mixer = null;
 
   const R = Kino.R;
@@ -35,7 +36,10 @@ module.exports = Kino=>{
     let nameSize = 1;
     let pull = 0, pullM = 0;
     u.activate = _=>{
-      if(p.generator) nameSize = 1.25;
+      if(p.generator) {
+        nameSize = 1.25;
+        o.ui.present(p);
+      }
       const a = u.activateBase();
       return _=>{
         a();
@@ -48,6 +52,7 @@ module.exports = Kino=>{
         let ratio = pull / (M.mainH-M.vPad*2);
         p.node.mute.setTargetAtTime(1.-Math.exp(-Math.max(0, 0.9-ratio)), S.X.currentTime, 0.01);
         if(ratio > 1) {
+          o.ui.release(p);
           p.disconnect();
           if(activePart && activePart.p == p) {
             // Release all
@@ -259,7 +264,7 @@ module.exports = Kino=>{
         else activeEffectLoc += (0 - activeEffectLoc) / 2.0;
         if(activeEffectLoc > 0.01) {
           const shift = (activeEffectLoc-1) * M.hPad;
-          for(let i=activeEffects.length;i>-1;i--) { // Reverse order to display remove line on top
+          for(let i=activeEffects.length-1;i>-1;i--) { // Reverse order to display remove line on top
             const e = activeEffects[i];
             R.translate(M.hPad/2+shift, (i+0.5)/effects.length*M.mainH).with(_=>{
               e.render();

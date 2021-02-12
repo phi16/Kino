@@ -74,6 +74,16 @@ o.sensel = (_=>{
 
   u.on = h=>{
     touchListeners.push(h);
+    return {
+      release: _=>{
+        for(let i=0;i<touchListeners.length;i++) {
+          if(touchListeners[i] == h) {
+            touchListeners.splice(i,1);
+            break;
+          }
+        }
+      }
+    };
   };
   return u;
 })();
