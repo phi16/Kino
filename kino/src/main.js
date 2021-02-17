@@ -5,6 +5,7 @@ const Kino = require('kino-core');
 // Renderer
 const container = document.getElementById("container");
 Kino.container(container);
+Kino.activateSynth();
 window.addEventListener("resize", Kino.resize);
 const ui = require('./ui')(Kino);
 require('./visual')(Kino);
@@ -55,6 +56,9 @@ mixer.generators = generators;
 
 // Voice Analyzer
 Kino.S.voiceAnalysis();
+
+// Network broadcast
+require('./connect')(Kino);
 
 // Test Beat Sound
 const S = Kino.S;

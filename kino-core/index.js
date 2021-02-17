@@ -3,10 +3,12 @@ const Kino = {};
 Kino.I = require('./src/input');
 Kino.L = require('./src/log');
 Kino.S = require('./src/sound');
+Kino.C = require('./src/rtc.js');
 Kino.container = c=>{
   const ui = document.createElement("canvas");
   const gl = document.createElement("canvas");
   c.appendChild(gl);
+  Kino.visualCanvas = gl;
   const R = require('./src/canvas')(ui);
   const G = require('./src/gl')(gl);
   const uiBuffer = G.RenderBuffer();
@@ -41,7 +43,9 @@ Kino.container = c=>{
 
   Kino.R = R;
   Kino.G = G;
-  Kino.Y = require('./src/synth')(Kino);
+  Kino.activateSynth = _=>{
+    Kino.Y = require('./src/synth')(Kino);
+  };
 };
 
 module.exports = Kino;

@@ -36,10 +36,7 @@ module.exports = Kino=>{
     let nameSize = 1;
     let pull = 0, pullM = 0;
     u.activate = _=>{
-      if(p.generator) {
-        nameSize = 1.25;
-        o.ui.present(p);
-      }
+      if(p.generator) nameSize = 1.25;
       const a = u.activateBase();
       return _=>{
         a();
@@ -218,6 +215,7 @@ module.exports = Kino=>{
     if(!ap) return;
     let touchIndex = touchIndexOf(c);
     if(touchIndex == -1) return;
+    if(ap.p.generator) o.ui.present(ap.p); // Generator UI display
     const ae = activeEffects[touchIndex];
     const e = ae.activate();
     effectTouches++;

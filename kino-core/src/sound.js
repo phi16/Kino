@@ -98,6 +98,11 @@ o.externalOut = async _=>{
   outAudio.srcObject = dest.stream;
   outAudio.play();
 };
+o.audioStream = _=>{
+  const dest = X.createMediaStreamDestination();
+  master.connect(dest);
+  return dest.stream;
+};
 
 o.voiceAnalysis = async _=>{
   // Voice Audio Analyzer

@@ -1,5 +1,6 @@
 const props = [];
 const logs = [];
+let showProp = true;
 module.exports = {
   add: t=>{
     let lastPos = 0;
@@ -11,6 +12,9 @@ module.exports = {
       props.push("");
     }
     props[i] = t;
+  },
+  propShow: b=>{
+    showProp = b;
   },
   render: R=>{
     R.blend("lighter",_=>{
@@ -26,6 +30,7 @@ module.exports = {
           i--;
         }
       }
+      if(!showProp) return;
       for(let i=0;i<props.length;i++) {
         const u = props[i];
         R.text(u,20,40+i*25,20).l().fill(0,0,0.5);
