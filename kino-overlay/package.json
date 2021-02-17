@@ -8,6 +8,7 @@
   "dependencies": {
     "electron": "^10.1.1",
     "kino-core": "../kino-core",
-    "socket.io-client": "^3.1.1"
+    "socket.io-client": "^3.1.1",
+    "node-openvr": "../node-openvr"
   }
 }
