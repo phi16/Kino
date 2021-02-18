@@ -66,7 +66,7 @@ module.exports = (Kino,o)=>{
       shape: _=>[volL, volH],
       level: 0,
       press: touch=>{
-        vel0 += touch.vel;
+        vel0 += touch.vel; // TODO: may miss
       },
       acquire: _=>{
         if(count == 0) vel1 = vel2 = velM = 0;
@@ -84,7 +84,6 @@ module.exports = (Kino,o)=>{
         velM = Math.max(velM, vel2);
         volH *= Math.exp(-dt*8);
         if(count == 0) {
-          volL *= Math.exp(-dt*volH*(1-Math.exp(-velM*1))*8);
           if(volL < 0.075) volL *= Math.exp(-dt*2);
           volume = volL + volH;
           vel1 = vel2;

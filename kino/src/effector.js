@@ -262,6 +262,7 @@ module.exports = Kino=>{
         else activeEffectLoc += (0 - activeEffectLoc) / 2.0;
         if(activeEffectLoc > 0.01) {
           const shift = (activeEffectLoc-1) * M.hPad;
+          R.rect(shift, 0, M.hPad, M.mainH).fill(0,0,0);
           for(let i=activeEffects.length-1;i>-1;i--) { // Reverse order to display remove line on top
             const e = activeEffects[i];
             R.translate(M.hPad/2+shift, (i+0.5)/effects.length*M.mainH).with(_=>{

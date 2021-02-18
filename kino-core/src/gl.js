@@ -189,6 +189,7 @@ module.exports = canvas=>{
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+    let source = null, sourceWidth = w;
     return {
       resize: (nw,nh)=>{
         w = nw, h = nh;
@@ -210,13 +211,22 @@ module.exports = canvas=>{
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, ofb);
         gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        source = null;
       },
       use: _=>{
         return { texture: tex };
       },
       copyCanvas: cvs=>{
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, cvs);
+        const curWidth = cvs.videoWidth > 0 ? cvs.videoWidth : cvs.width;
+        if(source == cvs && sourceWidth == curWidth) {
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, cvs);
+        } else {
+          if(cvs.videoWidth > 0) w = cvs.videoWidth, h = cvs.videoHeight;
+          else w = cvs.width, h = cvs.height;
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, cvs);
+          source = cvs;
+        }
         gl.generateMipmap(gl.TEXTURE_2D);
       }
     };

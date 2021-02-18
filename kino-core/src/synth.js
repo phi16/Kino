@@ -3,6 +3,7 @@ module.exports = Kino=>{
 
   const G = Kino.G;
   const S = Kino.S;
+  const H = Kino.H;
   const L = Kino.L;
   const vert = G.vert;
   const rect = G.rect;
@@ -504,6 +505,7 @@ module.exports = Kino=>{
       step();
     });
     for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
+    H.step();
 
     const b = waveBuffer.pixels(samples/4, channels*2);
     for(let i=0;i<channels*2;i++) {

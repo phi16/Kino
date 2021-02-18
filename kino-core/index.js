@@ -3,7 +3,8 @@ const Kino = {};
 Kino.I = require('./src/input');
 Kino.L = require('./src/log');
 Kino.S = require('./src/sound');
-Kino.C = require('./src/rtc.js');
+Kino.C = require('./src/rtc');
+Kino.H = require('./src/rhythm');
 Kino.container = c=>{
   const ui = document.createElement("canvas");
   const gl = document.createElement("canvas");
