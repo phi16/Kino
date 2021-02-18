@@ -46,7 +46,16 @@ o.createEffector = _=>{
     hd: hd.gain,
     hw: hw.gain,
     g: g.gain,
-    mute: i.gain
+    mute: i.gain,
+    reset: _=>{
+      const t = X.currentTime, e = 0.01;
+      l.frequency.setTargetAtTime(20000, t, e);
+      ld.gain.setTargetAtTime(0, t, e);
+      lw.gain.setTargetAtTime(1, t, e);
+      h.frequency.setTargetAtTime(20, t, e);
+      hd.gain.setTargetAtTime(0, t, e);
+      hw.gain.setTargetAtTime(1, t, e);
+    }
   };
 };
 

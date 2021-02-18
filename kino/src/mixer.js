@@ -50,6 +50,7 @@ module.exports = Kino=>{
       p.volume = 0;
       node.g.setTargetAtTime(0, S.X.currentTime, 0.01);
       node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
+      node.reset();
     };
     p.uiOpen = false;
     p.onOpen = _=>{

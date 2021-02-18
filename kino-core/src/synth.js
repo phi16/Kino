@@ -102,32 +102,36 @@ module.exports = Kino=>{
   }`;
 
   const grainStep = `
-  vec4 p0 = texelFetch(tex, ivec2(0, y), 0);
-  vec4 q0 = texelFetch(tex, ivec2(1, y), 0);
-  vec4 p1 = texelFetch(tex, ivec2(2, y), 0);
-  vec4 q1 = texelFetch(tex, ivec2(3, y), 0);
-  vec4 note = params[blockIndex*paramCount + threadIndex / grains];
-  vec2 curNote = note.xy, prevNote = note.zw;
-  float grainDur = 1.0 / curNote.x;
-  float startTime = p1.z + p1.w * 0.5;
-  float singleDur = 0.5 * grainDur;
-  if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
-  startTime += rand(vec2(0,y) + randoms)*grainDur;
-  bool fadeCut = false;
-  if(distance(curNote.x, prevNote.x) > 0.00001) {
-    // Prepare for the next note
-    q0.x = q1.x = 0.;
-    startTime = 0.;
-    fadeCut = true;
-  }
-  startTime = max(0., startTime); // may occur from sudden grainDur decreasing
-  if(startTime < t) {
-    float i = floor((t-startTime) / singleDur);
-    p0 = p1, q0 = q1;
-    gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p1, q1);
-    if(i > 0.5) {
-      i--;
-      gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p0, q0);
+  vec4 p0 = texelFetch(tex, ivec2(1, y), 0);
+  vec4 q0 = texelFetch(tex, ivec2(2, y), 0);
+  vec4 p1 = texelFetch(tex, ivec2(3, y), 0);
+  vec4 q1 = texelFetch(tex, ivec2(4, y), 0);
+  vec2 curNote = curParam0.xy, prevNote = prevParam0.xy;
+  if(curNote.x == 0.) {
+    p0 = p1 = vec4(0, 1, 0, 1);
+    q0 = q1 = vec4(0, 0, 0, 0);
+  } else {
+    float grainDur = 1.0 / curNote.x;
+    float startTime = p1.z + p1.w * 0.5;
+    float singleDur = 0.5 * grainDur;
+    if(p1.w > grainDur) startTime = p1.z + p1.w - (grainDur - singleDur);
+    startTime += rand(vec2(0,y) + randoms)*grainDur;
+    bool fadeCut = false;
+    if(prevNote.x == 0. && curNote.x > 0.) {
+      // Prepare for the next note
+      q0.x = q1.x = 0.;
+      startTime = 0.;
+      fadeCut = true;
+    }
+    startTime = max(0., startTime); // may occur from sudden grainDur decreasing
+    if(startTime < t) {
+      float i = floor((t-startTime) / singleDur);
+      p0 = p1, q0 = q1;
+      gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p1, q1);
+      if(i > 0.5) {
+        i--;
+        gen(startTime+i*singleDur, grainDur, y, curNote, fadeCut, p0, q0);
+      }
     }
   }
   `;
@@ -146,27 +150,32 @@ module.exports = Kino=>{
     vec4 result = vec4(0);
 
     vec4 b0 = blocks[blockIndex];
+    vec4 curParam0 = params[blockIndex*paramCount + threadIndex/2*2 + 0];
+    vec4 curParam1 = params[blockIndex*paramCount + threadIndex/2*2 + 1];
+    vec4 prevParam0 = texelFetch(tex, ivec2(0, y/2*2 + 0), 0);
+    vec4 prevParam1 = texelFetch(tex, ivec2(0, y/2*2 + 1), 0);
     int type = int(b0.x);
     if(type == 1) { // Grain
       float t = dur;
       ${grainStep}
       p0.z -= dur, p1.z -= dur;
-      if(x == 0) result = p0;
-      if(x == 1) result = q0;
-      if(x == 2) result = p1;
-      if(x == 3) result = q1;
-    } else if(type == 2) { // Cycle
-      vec4 q = texelFetch(tex, ivec2(0, y), 0);
-      vec4 pa = params[blockIndex*paramCount];
-      q.x += pa.x*dur + (pa.z-pa.x)*(pow(dur,3.) + pow(dur,4.)/2.);
-      q.x = fract(q.x);
-      result = q;
-    } else if(type == 3) { // Noise
-      vec4 q = texelFetch(tex, ivec2(0, y), 0);
+      if(x == 1) result = p0;
+      if(x == 2) result = q0;
+      if(x == 3) result = p1;
+      if(x == 4) result = q1;
+    } else if(type == 2) { // Noise
+      vec4 q = texelFetch(tex, ivec2(1, y), 0);
+      if(prevParam0.x == 0.) q.x = 0.;
       q.x += dur;
       q.x = mod(q.x, 131072./48000.);
       result = q;
+    } else if(type == 3) { // Cycle
+      vec4 q = texelFetch(tex, ivec2(1, y), 0);
+      if(prevParam0.x == 0.) q.x = 0.;
+      q.x += dur;
+      result = q;
     }
+    if(x == 0) result = y%2 == 0 ? curParam0 : curParam1;
 
     fragColor = result;
   }
@@ -189,33 +198,41 @@ module.exports = Kino=>{
     vec4 result = vec4(0);
 
     vec4 b0 = blocks[blockIndex];
+    vec4 curParam0 = params[blockIndex*paramCount + threadIndex/2*2 + 0];
+    vec4 curParam1 = params[blockIndex*paramCount + threadIndex/2*2 + 1];
+    vec4 prevParam0 = texelFetch(tex, ivec2(0, y/2*2 + 0), 0);
+    vec4 prevParam1 = texelFetch(tex, ivec2(0, y/2*2 + 1), 0);
     int type = int(b0.x);
     if(type == 1) { // Grain
       ${grainStep}
       vec4 v = grain(p0, q0, ts) + grain(p1, q1, ts);
       result = v * mix(prevNote.y, curNote.y, coord.x*0.5+0.5);
-    } else if(type == 2) { // Cycle
-      vec4 q = texelFetch(tex, ivec2(0, y), 0);
-      vec4 pa = params[blockIndex*paramCount];
-      float s = mix(pa.w, pa.y, coord.x*0.5+0.5);
-      vec4 u = q.x + pa.x*ts + (pa.z-pa.x)*(pow(ts,vec4(3.)) + pow(ts,vec4(4.))/2.);
+    } else if(type == 2) { // Noise
+      vec4 q = texelFetch(tex, ivec2(1, y), 0);
+      if(prevParam0.x == 0.) q.x = 0.;
+      vec4 v = vec4(0.);
+      vec4 pp = prevParam0, cp = curParam0;
+      ts += q.x;
+      float fx = cp.x;
+      float fy = cp.y;
+      float s = cp.z;
+      v.x = sampleNoise(ts.x, fx, fy);
+      v.y = sampleNoise(ts.y, fx, fy);
+      v.z = sampleNoise(ts.z, fx, fy);
+      v.w = sampleNoise(ts.w, fx, fy);
+      result = v * s * mix(exp(-ts*10.), exp(-ts*100.), 0.4) * (1.-exp(-ts*400.));
+    } else if(type == 3) { // Cycle
+      vec4 q = texelFetch(tex, ivec2(1, y), 0);
+      if(prevParam0.x == 0.) q.x = 0.;
+      ts += q.x;
+      vec4 pp = prevParam0, cp = curParam0;
+      float fx = cp.x;
+      float fy = cp.y;
+      float s = cp.z;
+      float rate = 1.0f;
+      vec4 u = fx*ts - fy*exp(-rate*ts)/rate;
       vec4 v = sin(u * 3.14159265*2.);
-      result = v * s;
-    } else if(type == 3) { // Noise
-      vec4 q = texelFetch(tex, ivec2(0, y), 0);
-      vec4 pa = params[blockIndex*paramCount];
-      vec4 ps = params[blockIndex*paramCount+1];
-      if(threadIndex < 2) {
-        vec4 v = vec4(0.);
-        float fx = mix(pa.z, pa.x, coord.x*0.5+0.5);
-        float fy = mix(pa.w, pa.y, coord.x*0.5+0.5);
-        float s = mix(ps.y, ps.x, coord.x*0.5+0.5);
-        v.x = sampleNoise(q.x + ts.x, fx, fy);
-        v.y = sampleNoise(q.x + ts.y, fx, fy);
-        v.z = sampleNoise(q.x + ts.z, fx, fy);
-        v.w = sampleNoise(q.x + ts.w, fx, fy);
-        result = v * s;
-      }
+      result = v * s * mix(exp(-ts*20.), exp(-ts*100.), 0.4) * (1.-exp(-ts*400.));
     }
 
     int ch = int(region[channels*2 + y / allocUnit]);
@@ -349,7 +366,7 @@ module.exports = Kino=>{
   })();
 
   const generators = new Array(channels);
-  const memoryBuffer = G.DataLoopBuffer(8, units);
+  const memoryBuffer = G.DataLoopBuffer(16, units); // column at 0: previous synthParam
   const waveBuffer = G.DataLoopBuffer(samples/4, units);
 
   const blockParams = new Float32Array(4 * allocBlock); // genId, 0, 0, 0
@@ -504,7 +521,10 @@ module.exports = Kino=>{
       step.blocks.v4(blockParams);
       step();
     });
-    for(let i=0;i<channels;i++) if(generators[i]) generators[i].step();
+    for(let i=0;i<channels;i++) {
+      const g = generators[i];
+      if(g && g.step) g.step();
+    }
     H.step();
 
     const b = waveBuffer.pixels(samples/4, channels*2);

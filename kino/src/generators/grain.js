@@ -4,57 +4,12 @@ module.exports = (Kino,o)=>{
   const I = Kino.I.sensel;
   let M = null;
 
-  const units = 512;
-  const allocBlock = 16;
-  const blockUnits = units / allocBlock;
-  const grains = 2;
-  const blockNotes = blockUnits / grains;
-  const paramCount = 32;
-  const freeLocs = [];
-  function allocNote(f) {
-    if(freeLocs.length == 0) {
-      if(!o.alloc()) return null;
-      const j = o.store.synth.length / paramCount / 4 - 1;
-      for(let i=0;i<blockNotes;i++) {
-        o.store.synth[j*4*paramCount+i*4+0] = 1;
-        o.store.synth[j*4*paramCount+i*4+1] = 0;
-        o.store.synth[j*4*paramCount+i*4+2] = 1;
-        o.store.synth[j*4*paramCount+i*4+3] = 0;
-        freeLocs.push(j*paramCount + i);
-      }
-    }
-    const l = freeLocs.shift();
-    o.store.synth[l*4+0] = f/440;
-    o.store.synth[l*4+1] = 0;
-    o.store.synth[l*4+2] = 1;
-    o.store.synth[l*4+3] = 0;
-    // Note: `store` may be changed
-    return {
-      gain: v=>{
-        o.store.synth[l*4+1] = v/30;
-      },
-      release: _=>{
-        o.store.synth[l*4+0] = 1;
-        o.store.synth[l*4+1] = 0;
-        setTimeout(_=>{
-          freeLocs.push(l);
-        }, 100);
-      }
-    };
-  }
-  o.step = _=>{
-    const n = o.store.synth.length / 4;
-    for(let l=0;l<n;l++) {
-      o.store.synth[l*4+2] = o.store.synth[l*4+0];
-      o.store.synth[l*4+3] = o.store.synth[l*4+1];
-    }
-  };
-
   const notes = {};
   function retainNote(p, f) {
     if(notes[p]) return notes[p].acquire();
-    const s = allocNote(f);
+    const s = o.alloc();
     if(s == null) return null;
+    s.param([f/440, 0]);
     let count = 0;
     let vel0 = 0, vel1 = 0, vel2 = 0, velM = 0;
     let volL = 0, volH = 0;
@@ -96,7 +51,7 @@ module.exports = (Kino,o)=>{
           volume = volL + volH;
           vel0 = 0;
         }
-        s.gain(volume*volumeMult);
+        s.param([f/440, volume*volumeMult]);
         if(count == 0 && volume < 0.001) {
           delete notes[p];
           s.release();

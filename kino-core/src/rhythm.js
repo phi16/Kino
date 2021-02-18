@@ -49,7 +49,7 @@ o.step = _=>{
   if(curTime >= beatSamples) curBeat++, curTime -= beatSamples;
   const ti = time/beatSamples, curTi = curTime/beatSamples;
   const pd = u.get(beat, ti, curBeat, curTi);
-  if(pd) console.log(pd.d * beatSamples / stepSamples);
+  // if(pd) console.log(pd.d * beatSamples / stepSamples);
   beat = curBeat, time = curTime;
 };
 module.exports = o;
