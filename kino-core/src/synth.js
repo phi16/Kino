@@ -165,7 +165,7 @@ module.exports = Kino=>{
       if(x == 4) result = q1;
     } else if(type == 2) { // Noise
       vec4 q = texelFetch(tex, ivec2(1, y), 0);
-      if(prevParam0.x == 0.) q.x = 0.;
+      if(prevParam0.x == 0.) q.x = - curParam0.w;
       q.x += dur;
       q.x = mod(q.x, 131072./48000.);
       result = q;
@@ -209,10 +209,11 @@ module.exports = Kino=>{
       result = v * mix(prevNote.y, curNote.y, coord.x*0.5+0.5);
     } else if(type == 2) { // Noise
       vec4 q = texelFetch(tex, ivec2(1, y), 0);
-      if(prevParam0.x == 0.) q.x = 0.;
+      if(prevParam0.x == 0.) q.x = - curParam0.w;
       vec4 v = vec4(0.);
       vec4 pp = prevParam0, cp = curParam0;
       ts += q.x;
+      ts = max(ts, vec4(0.));
       float fx = cp.x;
       float fy = cp.y;
       float s = cp.z;
@@ -220,7 +221,7 @@ module.exports = Kino=>{
       v.y = sampleNoise(ts.y, fx, fy);
       v.z = sampleNoise(ts.z, fx, fy);
       v.w = sampleNoise(ts.w, fx, fy);
-      result = v * s * mix(exp(-ts*10.), exp(-ts*100.), 0.4) * (1.-exp(-ts*400.));
+      result = v * s * mix(exp(-ts*10.), exp(-ts*100.), 0.2) * (1.-exp(-ts*400.));
     } else if(type == 3) { // Cycle
       vec4 q = texelFetch(tex, ivec2(1, y), 0);
       if(prevParam0.x == 0.) q.x = 0.;
@@ -229,7 +230,7 @@ module.exports = Kino=>{
       float fx = cp.x;
       float fy = cp.y;
       float s = cp.z;
-      float rate = 1.0f;
+      float rate = 200.0f;
       vec4 u = fx*ts - fy*exp(-rate*ts)/rate;
       vec4 v = sin(u * 3.14159265*2.);
       result = v * s * mix(exp(-ts*20.), exp(-ts*100.), 0.4) * (1.-exp(-ts*400.));

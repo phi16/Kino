@@ -56,10 +56,12 @@ module.exports = Kino=>{
     p.onOpen = _=>{
       p.uiOpen = true;
       p.generator.open();
+      p.generator.scheduler.open();
     };
     p.onClose = _=>{
       p.uiOpen = false;
       p.generator.close();
+      p.generator.scheduler.close();
     };
     p.volume = 0;
     p.addVolume = v=>{

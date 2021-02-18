@@ -1,5 +1,6 @@
 const o = {};
 // Assumption: multiple events do not occur in a single step on a pattern
+const patterns = {};
 o.pattern = iniLoopBeats=>{
   const p = {};
   let loopBeats = iniLoopBeats; // must be an integer
@@ -16,9 +17,12 @@ o.pattern = iniLoopBeats=>{
   };
   p.get = (pb,pt,cb,ct)=>{
     if(events.length == 0) return null;
+    let repeated = false;
+    if(loopBeats == 1 && pb != cb) repeated = true;
     pb %= loopBeats;
     cb %= loopBeats;
-    if(pb > cb) eventIndex = 0, pb -= loopBeats;
+    if(pb > cb) repeated = true;
+    if(repeated) eventIndex = 0, pb -= loopBeats;
     const pu = pb + pt, cu = cb + ct;
     for(let i=eventIndex;i<events.length;i++) {
       const e = events[i];
@@ -32,14 +36,21 @@ o.pattern = iniLoopBeats=>{
     eventIndex = 0;
     return null;
   };
+  let handler = _=>_;
+  p.on = cb=>{
+    handler = cb;
+  };
+  p.note = (d,o)=>{
+    handler(d,o);
+  };
+  p.key = Math.random();
+  p.release = _=>{
+    delete patterns[p.key];
+  };
+  patterns[p.key] = p;
   return p;
 };
-const u = o.pattern(4);
-u.addEvent(0);
-u.addEvent(1);
-u.addEvent(2);
-u.addEvent(3);
-const bpm = 125;
+const bpm = 120;
 const sampleRate = 48000;
 const stepSamples = 2048;
 const beatSamples = sampleRate / bpm * 60;
@@ -48,8 +59,11 @@ o.step = _=>{
   let curBeat = beat, curTime = time + stepSamples;
   if(curTime >= beatSamples) curBeat++, curTime -= beatSamples;
   const ti = time/beatSamples, curTi = curTime/beatSamples;
-  const pd = u.get(beat, ti, curBeat, curTi);
-  // if(pd) console.log(pd.d * beatSamples / stepSamples);
+  Object.keys(patterns).forEach(key=>{
+    const u = patterns[key];
+    const pd = u.get(beat, ti, curBeat, curTi);
+    if(pd) u.note(pd.d * beatSamples / sampleRate, pd.o);
+  });
   beat = curBeat, time = curTime;
 };
 module.exports = o;

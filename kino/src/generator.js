@@ -1,4 +1,4 @@
-module.exports = Kino=>{
+module.exports = (Kino,Scheduler)=>{
   const Y = Kino.Y;
 
   const NoteAllocator = (u,a)=>{
@@ -53,6 +53,7 @@ module.exports = Kino=>{
         synth: new Float32Array(0)
       };
       u.alloc = NoteAllocator(u,a);
+      u.scheduler = Scheduler(u);
       k(u);
       return u;
     };
@@ -63,9 +64,23 @@ module.exports = Kino=>{
   });
   Gen("Noise", o=>{
     require('./generators/noise')(Kino,o);
+    o.note = d=>{
+      const s = o.alloc();
+      s.param([10000, 20000, 0.3, d]);
+      setTimeout(_=>{
+        s.release();
+      }, 1000);
+    };
   });
   Gen("Cycle", o=>{
     require('./generators/cycle')(Kino,o);
+    o.note = d=>{
+      const s = o.alloc();
+      s.param([20, 1000, 0.3, d]);
+      setTimeout(_=>{
+        s.release();
+      }, 1000);
+    };
   });
   return gens;
 };

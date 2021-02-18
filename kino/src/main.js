@@ -51,10 +51,9 @@ mixer.ui = ui;
 mixer.effector = effector;
 effector.ui = ui;
 effector.mixer = mixer;
-const generators = require('./generator')(Kino);
+const Scheduler = require('./scheduler')(Kino, effector);
+const generators = require('./generator')(Kino, Scheduler);
 mixer.generators = generators;
-const scheduler = require('./scheduler')(Kino);
-ui.schedulerRender = scheduler.render;
 
 // Voice Analyzer
 Kino.S.voiceAnalysis();

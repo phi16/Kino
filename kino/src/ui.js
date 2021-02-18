@@ -2,7 +2,6 @@ module.exports = Kino=>{
   const o = {};
   o.mixerRender = _=>_;
   o.effectorRender = _=>_;
-  o.schedulerRender = _=>_;
 
   const R = Kino.R;
   const S = Kino.S;
@@ -39,14 +38,17 @@ module.exports = Kino=>{
     R.translate(R.w/2, R.h/2).with(_=>{
       R.scale(M.scale).translate(-M.w/2,-M.h/2).with(_=>{
         // Main
-        o.mixerRender(M);
-        o.schedulerRender(M);
-        o.effectorRender(M);
-        R.translate(M.hPad,M.vPad).with(_=>{
-          R.rect(0,0,M.mainW,M.mainH).clip(_=>{
-            if(currentPart) currentPart.generator.render(M);
+        if(currentPart) {
+          const g = currentPart.generator;
+          g.scheduler.render(M);
+          R.translate(M.hPad,M.vPad).with(_=>{
+            R.rect(0,0,M.mainW,M.mainH).clip(_=>{
+              g.render(M);
+            });
           });
-        });
+        }
+        o.mixerRender(M);
+        o.effectorRender(M);
         // Frame
         R.shape(_=>{
           R.X.rect(0, 0, I.width, I.height);

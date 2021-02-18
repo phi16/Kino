@@ -3,6 +3,7 @@ module.exports = Kino=>{
   o.ui = null;
   o.mixer = null;
 
+  o.visible = false;
   const R = Kino.R;
   const S = Kino.S;
   const I = Kino.I.sensel;
@@ -188,6 +189,7 @@ module.exports = Kino=>{
     for(let i=0;i<effects.length;i++) activeEffects.push(effects[i](p));
     partReleased = false;
     effectTouches = 0;
+    o.visible = true;
     return _=>{
       if(activePart != u) return;
       partReleased = true;
@@ -198,6 +200,7 @@ module.exports = Kino=>{
     activePart = null;
     activeLine.v = -1;
     activeLine.w = true;
+    o.visible = false;
   };
   function touchIndexOf(c) {
     if(M.sideX < c.x) {
