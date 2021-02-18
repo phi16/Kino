@@ -9,17 +9,15 @@ module.exports = Kino=>{
       Kino.L.add("Observer left.");
     });
     const C = Kino.C(socket);
-    
+
     if(ms == null) {
       ms = new MediaStream();
-      const visualStream = Kino.visualCanvas.captureStream();
+      const visualStream = Kino.uiCanvas.captureStream();
       const audioStream = Kino.S.audioStream();
       ms.addTrack(visualStream.getTracks()[0]);
       ms.addTrack(audioStream.getTracks()[0]);
     }
-    ms.getTracks().forEach(track=>{
-      C.pc.addTrack(track, ms);
-    });
+    C.addStream(ms);
   });
   server.listen(3000);
 };

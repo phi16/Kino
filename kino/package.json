@@ -10,7 +10,7 @@
     "express": "^4.17.1",
     "http": "0.0.1-security",
     "kino-core": "../kino-core",
-    "node-sensel": "file:../node-sensel",
+    "node-sensel": "../node-sensel",
     "socket.io": "^3.1.1"
   }
 }

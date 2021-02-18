@@ -67,15 +67,6 @@ module.exports = Kino=>{
   void main() {
     vec3 col = vec3(0.), weight = vec3(0.0);
 
-    // for(int i=0;i<16;i++) {
-    //   vec3 w = pow(cos((vec3(0,1,-1)/3. + float(i)/16.0)*3.1415926535*2.)*0.5+0.5,vec3(1.4));
-    //   w *= 1. - pow(float(i)/16.*2.-1., 2.0);
-    //   col += texture(tex, distort(coord,i)*0.5+0.5).rgb * w;
-    //   weight += w;
-    // }
-    // col /= weight;
-    // col = pow(col, vec3(2.));
-
     col = vec3(0.1);
     vec3 bloom = texture(tex, coord*0.5+0.5).rgb;
     vec3 original = texture(overlay, coord*0.5*vec2(1,-1)+0.5).rgb;

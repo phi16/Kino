@@ -8,7 +8,7 @@ Kino.container = c=>{
   const ui = document.createElement("canvas");
   const gl = document.createElement("canvas");
   c.appendChild(gl);
-  Kino.visualCanvas = gl;
+  Kino.uiCanvas = ui;
   const R = require('./src/canvas')(ui);
   const G = require('./src/gl')(gl);
   const uiBuffer = G.RenderBuffer();

@@ -27,6 +27,13 @@ module.exports = socket=>{
       hasRemoteAnswer = true;
     }
   });
-  o.pc = pc;
+  o.addStream = ms=>{
+    ms.getTracks().forEach(track=>{
+      pc.addTrack(track, ms);
+    });
+  };
+  o.onTrack = cb=>{
+    pc.ontrack = cb;
+  };
   return o;
 };

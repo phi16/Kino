@@ -1,6 +1,7 @@
 module.exports = (Kino,visual)=>{
   const io = require('socket.io-client');
-  const socket = io("http://192.168.10.9:3000");
+  const socket = io("http://localhost:3000");
+  // const socket = io("http://192.168.10.9:3000");
 
   socket.on("connect", _=>{
     Kino.L.add("Connected to Kino.");
@@ -9,8 +10,8 @@ module.exports = (Kino,visual)=>{
     });
     const C = Kino.C(socket);
 
-    C.pc.ontrack = e=>{
+    C.onTrack(e=>{
       visual.setStream(e.streams[0]);
-    };
+    });
   });
 };
