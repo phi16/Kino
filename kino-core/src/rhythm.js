@@ -50,11 +50,17 @@ o.pattern = iniLoopBeats=>{
   patterns[p.key] = p;
   return p;
 };
-const bpm = 120;
+let beat = 0, time = 0;
 const sampleRate = 48000;
 const stepSamples = 2048;
-const beatSamples = sampleRate / bpm * 60;
-let beat = 0, time = 0;
+let bpm = 120;
+let beatSamples = sampleRate / bpm * 60;
+o.changeTempo = nextTempo=>{
+  const t = time/beatSamples;
+  bpm = nextTempo;
+  beatSamples = sampleRate / bpm * 60;
+  time = t*beatSamples;
+};
 o.step = _=>{
   let curBeat = beat, curTime = time + stepSamples;
   if(curTime >= beatSamples) curBeat++, curTime -= beatSamples;
