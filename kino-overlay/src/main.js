@@ -4,7 +4,7 @@ const Kino = require('kino-core');
 
 // Renderer
 const container = document.getElementById("container");
-Kino.container(container);
+Kino.canvasContainer(container);
 window.addEventListener("resize", Kino.resize);
 const visual = require('./visual')(Kino);
 Kino.L.add("Launched.");
