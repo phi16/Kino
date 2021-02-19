@@ -12,7 +12,7 @@ module.exports = Kino=>{
 
     if(ms == null) {
       ms = new MediaStream();
-      const visualStream = Kino.uiCanvas.captureStream();
+      const visualStream = Kino.visualCanvas.captureStream();
       const audioStream = Kino.S.audioStream();
       ms.addTrack(visualStream.getTracks()[0]);
       ms.addTrack(audioStream.getTracks()[0]);

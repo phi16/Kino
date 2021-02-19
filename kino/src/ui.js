@@ -71,7 +71,7 @@ module.exports = Kino=>{
               R.ellipse(c.x, c.y, c.minor_axis*p, c.major_axis*p, c.orientation*Math.PI/180).stroke(1,0,0.2,0.5);
             }
           });
-          // Voice Spectrum
+          /* // Voice Spectrum
           const a = S.voiceFreqs;
           if(a) {
             R.shape(_=>{
@@ -81,7 +81,7 @@ module.exports = Kino=>{
                 R.X.lineTo(i,-a[i]);
               }
             }).stroke(1,0,0.05);
-          }
+          } */
         });
       });
     });
