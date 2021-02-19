@@ -1,15 +1,13 @@
 document.oncontextmenu = _=>false;
 
 const Kino = require('kino-core');
+Kino.L.toConsole();
 
 // Renderer
 const container = document.getElementById("container");
-Kino.canvasContainer(container);
-window.addEventListener("resize", Kino.resize);
-const visual = require('./visual')(Kino);
+const stream = require('./stream')(Kino);
 Kino.L.add("Launched.");
-Kino.L.propShow(false);
 
 Kino.I.keyboard.use(document);
 
-require('./connect')(Kino, visual);
+require('./connect')(Kino, stream);

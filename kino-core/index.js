@@ -48,34 +48,5 @@ Kino.container = c=>{
     Kino.Y = require('./src/synth')(Kino);
   };
 };
-Kino.canvasContainer = c=>{
-  const ui = document.createElement("canvas");
-  c.appendChild(ui);
-  Kino.visualCanvas = ui;
-  const R = require('./src/canvas')(ui);
-  Kino.resize = _=>{
-    let w = container.clientWidth;
-    let h = container.clientHeight;
-    ui.width = w;
-    ui.height = h;
-    R.resize(w,h);
-  };
-  Kino.resize();
-
-  let uiRender = _=>_;
-  Kino.uiRender = f=>{ uiRender = f; };
-
-  function render() {
-    const st = new Date();
-    uiRender();
-    Kino.L.render(R);
-    const et = new Date();
-    Kino.L.prop(1, "render: " + (et - st) + "ms");
-    requestAnimationFrame(render);
-  }
-  render();
-
-  Kino.R = R;
-};
 
 module.exports = Kino;

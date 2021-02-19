@@ -1,8 +1,12 @@
 const props = [];
 const logs = [];
-let showProp = true;
+let consoleOut = false;
 module.exports = {
   add: t=>{
+    if(consoleOut) {
+      console.log(t);
+      return;
+    }
     let lastPos = 0;
     if(logs.length > 0 && logs[0].pos < lastPos) lastPos = logs[0].pos;
     logs.unshift({ text: t + "", pos: lastPos-1, time: 0 });
@@ -13,8 +17,8 @@ module.exports = {
     }
     props[i] = t;
   },
-  propShow: b=>{
-    showProp = b;
+  toConsole: _=>{
+    consoleOut = true;
   },
   render: R=>{
     R.blend("lighter",_=>{
@@ -30,7 +34,6 @@ module.exports = {
           i--;
         }
       }
-      if(!showProp) return;
       for(let i=0;i<props.length;i++) {
         const u = props[i];
         R.text(u,20,40+i*25,20).l().fill(0,0,0.5);
