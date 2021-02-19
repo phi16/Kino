@@ -226,6 +226,7 @@ module.exports = canvas=>{
           else w = cvs.width, h = cvs.height;
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, cvs);
           source = cvs;
+          sourceWidth = curWidth;
         }
         gl.generateMipmap(gl.TEXTURE_2D);
       }
