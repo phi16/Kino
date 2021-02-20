@@ -1,12 +1,10 @@
 module.exports = (Kino,o)=>{
   const R = Kino.R;
   const S = Kino.S;
-  const I = Kino.I.sensel;
   let M = null;
 
-  let uiActive = false;
-  const touchHandler = I.on(function*(){
-    if(!uiActive || M == null) return;
+  o.onTouch = function*(){
+    if(M == null) return;
     let c = yield;
     if(c.x < M.hPad || c.y < M.vPad || c.x > M.mainW+M.hPad || c.y > M.mainH+M.vPad) return;
     const s = o.alloc();
@@ -20,23 +18,8 @@ module.exports = (Kino,o)=>{
     setTimeout(_=>{
       s.release();
     }, 1000);
-  });
+  };
 
-  let displayTime = 0;
-  o.open = _=>{
-    uiActive = true;
-    displayTime = 0;
-  };
-  o.close = _=>{
-    uiActive = false;
-  };
-  o.disconnect = _=>{
-    uiActive = false;
-    touchHandler.release();
-  };
-  o.uiStep = dt=>{
-    displayTime += dt;
-  };
   o.render = M2=>{
     M = M2;
     R.rect(M.mainW*(1-1/1.2)/2, M.mainH*(1-1/1.2)/2, M.mainW/1.2, M.mainH/1.2).stroke(0,0,0.4,1);

@@ -52,16 +52,11 @@ module.exports = Kino=>{
       node.mute.setTargetAtTime(1, S.X.currentTime, 0.01);
       node.reset();
     };
-    p.uiOpen = false;
     p.onOpen = _=>{
-      p.uiOpen = true;
       p.generator.open();
-      p.generator.scheduler.open();
     };
     p.onClose = _=>{
-      p.uiOpen = false;
       p.generator.close();
-      p.generator.scheduler.close();
     };
     p.volume = 0;
     p.addVolume = v=>{
@@ -142,7 +137,7 @@ module.exports = Kino=>{
     prevTime = curTime;
     for(let i=0;i<parts.length-1;i++) {
       const p = parts[i];
-      if(p.generator) p.generator.uiStep(dt);
+      if(p.generator) p.generator.uiStepInternal(dt);
     }
   }, 16);
 
@@ -256,7 +251,7 @@ module.exports = Kino=>{
         const r = s.shape.d * 2;
         const l = s.shape.l * 1;
         const b = s.shape.b * 0.4;
-        const b2 = s.uiOpen ? 0.4 : 0;
+        const b2 = s.generator && s.generator.uiActive ? 0.4 : 0;
         if(r > 0.01 || l > 0.01) {
           const v = lerp(w-e-l-r, e+r/2, s.shape.v);
           const c = lerp(v+r, w-e, s.shape.l);
@@ -271,8 +266,8 @@ module.exports = Kino=>{
             });
           }
           R.line(v+r,y,c-l,y).stroke(1,0,0.2+b,0.6);
-          R.circle(c,y,l).stroke(1,0,0.2+b+b2,0.6);
           R.poly(v,y,r,4,0).stroke(1,0,0.3+b,0.6);
+          R.circle(c,y,l).stroke(1,0,0.2+b+b2,0.6);
         }
       }
     });

@@ -15,6 +15,19 @@ o.pattern = iniLoopBeats=>{
     }
     events.push({ t, o });
   };
+  p.removeEvent = t=>{
+    for(let i=0;i<events.length;i++) {
+      if(t == events[i].t) {
+        events.splice(i, 1);
+        return;
+      }
+    }
+  };
+  p.reset = lb=>{
+    events = [];
+    eventIndex = 0;
+    loopBeats = lb;
+  };
   p.get = (pb,pt,cb,ct)=>{
     if(events.length == 0) return null;
     let repeated = false;
@@ -55,11 +68,14 @@ const sampleRate = 48000;
 const stepSamples = 2048;
 let bpm = 120;
 let beatSamples = sampleRate / bpm * 60;
+o.beat = beat;
+o.time = time;
 o.changeTempo = nextTempo=>{
   const t = time/beatSamples;
   bpm = nextTempo;
   beatSamples = sampleRate / bpm * 60;
   time = t*beatSamples;
+  o.time = t;
 };
 o.step = _=>{
   let curBeat = beat, curTime = time + stepSamples;
@@ -70,6 +86,7 @@ o.step = _=>{
     const pd = u.get(beat, ti, curBeat, curTi);
     if(pd) u.note(pd.d * beatSamples / sampleRate, pd.o);
   });
-  beat = curBeat, time = curTime;
+  o.beat = beat = curBeat, time = curTime;
+  o.time = curTi;
 };
 module.exports = o;

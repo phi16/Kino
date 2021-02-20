@@ -86,12 +86,11 @@ module.exports = (Kino,o)=>{
     return { i, j, p, f: 440*Math.pow(2, p/12), cx, cy };
   }
 
-  let uiActive = false;
   const touchCount = Array(12), touchBright = Array(12);
   touchCount.fill(0), touchBright.fill(0);
   const touchPanels = {};
-  const touchHandler = I.on(function*(){
-    if(!uiActive || M == null) return;
+  o.onTouch = function*(){
+    if(M == null) return;
     let c = yield;
     if(c.x < M.hPad || c.y < M.vPad || c.x > M.mainW+M.hPad || c.y > M.mainH+M.vPad) return;
     const panel = panelAt(c);
@@ -125,26 +124,13 @@ module.exports = (Kino,o)=>{
     setTimeout(_=>{
       delete touchPanels[key];
     }, 1000);
-  });
+  };
 
-  let displayTime = 0;
-  o.open = _=>{
-    uiActive = true;
-    displayTime = 0;
-  };
-  o.close = _=>{
-    uiActive = false;
-  };
-  o.disconnect = _=>{
-    uiActive = false;
-    touchHandler.release();
-  };
   o.uiStep = dt=>{
     for(const p in notes) {
       const n = notes[p];
       n.step(dt);
     }
-    displayTime += dt;
     for(let i=0;i<touchCount.length;i++) {
       if(touchCount[i] > 0) touchBright[i] += (1 - touchBright[i]) / 4.0;
       else touchBright[i] += (0 - touchBright[i]) / 4.0;
@@ -155,7 +141,7 @@ module.exports = (Kino,o)=>{
     let s = panelScale;
     function shapeDist(x,y) {
       let d = Math.sqrt(x*x+y*y);
-      d = Math.exp(-Math.max(0, displayTime*16-d*0.5));
+      d = Math.exp(-Math.max(0, o.displayTime*16-d*0.5));
       return 1 - d;
     }
     R.blend("lighter",_=>{

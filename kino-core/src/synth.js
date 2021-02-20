@@ -171,7 +171,7 @@ module.exports = Kino=>{
       result = q;
     } else if(type == 3) { // Cycle
       vec4 q = texelFetch(tex, ivec2(1, y), 0);
-      if(prevParam0.x == 0.) q.x = 0.;
+      if(prevParam0.x == 0.) q.x = - curParam0.w;
       q.x += dur;
       result = q;
     }
@@ -224,8 +224,9 @@ module.exports = Kino=>{
       result = v * s * mix(exp(-ts*10.), exp(-ts*100.), 0.2) * (1.-exp(-ts*400.));
     } else if(type == 3) { // Cycle
       vec4 q = texelFetch(tex, ivec2(1, y), 0);
-      if(prevParam0.x == 0.) q.x = 0.;
+      if(prevParam0.x == 0.) q.x = - curParam0.w;
       ts += q.x;
+      ts = max(ts, vec4(0.));
       vec4 pp = prevParam0, cp = curParam0;
       float fx = cp.x;
       float fy = cp.y;

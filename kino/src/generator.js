@@ -1,5 +1,6 @@
 module.exports = (Kino,Scheduler)=>{
   const Y = Kino.Y;
+  const I = Kino.I.sensel;
 
   const NoteAllocator = (u,a)=>{
     const units = 512;
@@ -54,6 +55,31 @@ module.exports = (Kino,Scheduler)=>{
       };
       u.alloc = NoteAllocator(u,a);
       u.scheduler = Scheduler(u);
+
+      u.displayTime = 0;
+      u.uiActive = false;
+      u.onTouch = function*(){};
+      const touchHandler = I.on(function*(){
+        if(u.uiActive) yield* u.onTouch();
+      });
+      u.open = _=>{
+        u.uiActive = true;
+        u.displayTime = 0;
+        u.scheduler.open();
+      };
+      u.close = _=>{
+        u.uiActive = false;
+        u.scheduler.close();
+      };
+      u.disconnect = _=>{
+        u.uiActive = false;
+        u.scheduler.disconnect();
+        touchHandler.release();
+      };
+      u.uiStepInternal = dt=>{
+        u.displayTime += dt;
+        if(u.uiStep) u.uiStep(dt);
+      };
       k(u);
       return u;
     };

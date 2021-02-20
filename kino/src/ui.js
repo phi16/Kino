@@ -20,6 +20,7 @@ module.exports = Kino=>{
   M.mainW = M.w - M.hPad*2;
   M.mainH = M.h - M.vPad*2;
   M.sideX = M.hPad + M.mainW;
+  M.sideY = M.vPad + M.mainH;
 
   let currentPart = null;
   o.present = p=>{

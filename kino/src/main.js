@@ -22,8 +22,6 @@ if(sensel != null) {
   sensel.setContactsMask(senselLib.ContactsMask.ELLIPSE);
   Kino.I.sensel.use(sensel, senselLib.ContactState);
   Kino.L.add("Sensel connected.");
-} else {
-  Kino.L.add("Sensel not found.");
 }
 
 navigator.requestMIDIAccess({sysex: true}).then(midi=>{
