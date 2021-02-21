@@ -16,14 +16,20 @@ module.exports = (Kino,effector)=>g=>{
     u.phase = phase; // [beat]
     u.unit = unit; // [beat-log2]
     u.rh = [];
+    u.rhSel = [];
+    u.rhSelM = [];
     u.muted = false;
     u.muteBar = 0;
     u.alpha = 1;
-    for(let i=0;i<8;i++) u.rh.push(null);
+    for(let i=0;i<8;i++) {
+      u.rh.push(null);
+      u.rhSel.push(false);
+      u.rhSelM.push(0);
+    }
     const pat = H.pattern(u.period);
-    pat.on(d=>{
+    pat.on((d,o)=>{
       if(u.muted) return;
-      if(g.note) g.note(d);
+      if(g.note) g.note(d,o);
     });
     u.flipMute = _=>{
       u.muted = !u.muted;
@@ -131,11 +137,44 @@ module.exports = (Kino,effector)=>g=>{
     return q;
   })();
 
+  // Rhythm Note
+  const selectingNodes = [];
+  let selectingSequence = null;
+  for(let i=0;i<8;i++) selectingNodes[i] = false;
   function* rhythmNote(touchIndex, c) {
-    Qs.seqs[Qs.cur].on(touchIndex, true);
-    if(Qs.cur == 0) Qs.addFirst();
-    if(Qs.cur == Qs.seqs.length-1) Qs.addLast();
+    const q = Qs.seqs[Qs.cur];
+    selectingSequence = q;
+    const bound = Math.min(8, q.period/Math.pow(2,q.unit));
+    if(touchIndex >= bound) return;
+    if(q.rhSel[touchIndex]) return;
+    q.rhSel[touchIndex] = true;
+    selectingNodes[touchIndex] = true;
+    while(true) {
+      const nc = yield;
+      if(nc.state == I.states.END) {
+        q.rhSel[touchIndex] = false;
+        selectingNodes[touchIndex] = false;
+      }
+    }
   }
+  o.register = d=>{
+    const q = selectingSequence;
+    if(q == null) return false;
+    let selected = false;
+    for(let i=0;i<8;i++) {
+      if(selectingNodes[i]) {
+        selected = true;
+        q.on(i, d);
+        q.rhSelM[i] = 3;
+      }
+    }
+    if(selected) {
+      if(q == Qs.seqs[0]) Qs.addFirst();
+      else if(q == Qs.seqs[Qs.seqs.length-1]) Qs.addLast();
+    }
+    return selected;
+  };
+  // Pattern Control
   let countsRetain = 0;
   let pull = 0, pullM = 0;
   function* patternControl(side, c) {
@@ -186,6 +225,7 @@ module.exports = (Kino,effector)=>g=>{
       }
     }
   }
+  // Scroll
   let scrollRetain = 0;
   function* scroll(c) {
     const d = Qs.curSel;
@@ -224,6 +264,7 @@ module.exports = (Kino,effector)=>g=>{
       }
     }
   }
+
   let uiActive = false;
   const touchHandler = I.on(function*() {
     if(!uiActive || effector.visible || M == null) return;
@@ -319,11 +360,13 @@ module.exports = (Kino,effector)=>g=>{
           }
           // notes
           for(let i=0;i<bound;i++) {
+            q.rhSelM[i] += ((q.rhSel[i] ? 1 : 0) - q.rhSelM[i]) / 4.0;
             const y = lerp(ub, lb, ((i+1)/9 - 0.5) * mu + 0.5);
             const e = ef < i ? 0 : ef < i+1 ? Math.exp((i-ef)*3) * (q.muted ? 0.5 : 1) : 0;
             const es = q.muted ? 0 : e;
-            if(rh[i]) R.poly(bx,y,3*mu+es,4,0).stroke(1,0,(0.4+e)*bbr,0.6);
-            else R.circle(bx,y,mu).stroke(1,0,(0.2+e)*bbr,0.6);
+            const sz = q.rhSelM[i];
+            if(rh[i]) R.poly(bx,y,(3+sz)*mu+es,4,0).stroke(1,0,(0.4+e+sz*0.2)*bbr,0.6);
+            else R.circle(bx,y,(1+sz)*mu).stroke(1,0,(0.2+e+sz*0.2)*bbr,0.6);
           }
         }
         // Scroll

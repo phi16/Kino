@@ -14,10 +14,13 @@ module.exports = (Kino,o)=>{
     y = Math.max(0, Math.min(1, y));
     x = 20 * Math.pow(2, x*10);
     y = 20 * Math.pow(2, y*10);
-    s.param([x, y, 1 - Math.exp(-c.force/200), 0]);
-    setTimeout(_=>{
-      s.release();
-    }, 1000);
+    const ok = o.scheduler.register({ x, y, v: 1 - Math.exp(-c.force/200) });
+    if(!ok) {
+      s.param([x, y, 1 - Math.exp(-c.force/200), 0]);
+      setTimeout(_=>{
+        s.release();
+      }, 1000);
+    }
   };
 
   o.render = M2=>{

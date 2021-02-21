@@ -90,9 +90,9 @@ module.exports = (Kino,Scheduler)=>{
   });
   Gen("Noise", o=>{
     require('./generators/noise')(Kino,o);
-    o.note = d=>{
+    o.note = (d,u)=>{
       const s = o.alloc();
-      s.param([10000, 20000, 0.3, d]);
+      s.param([u.x, u.y, u.v, d]);
       setTimeout(_=>{
         s.release();
       }, 1000);
@@ -100,9 +100,9 @@ module.exports = (Kino,Scheduler)=>{
   });
   Gen("Cycle", o=>{
     require('./generators/cycle')(Kino,o);
-    o.note = d=>{
+    o.note = (d,u)=>{
       const s = o.alloc();
-      s.param([20, 1000, 0.3, d]);
+      s.param([u.x, u.y, u.v, d]);
       setTimeout(_=>{
         s.release();
       }, 1000);
