@@ -41,6 +41,7 @@ o.sensel = (_=>{
   u.height = 130;
   u.states = { START: 1, MOVE: 2, END: 3 };
   u.touches = {};
+  u.connected = false;
 
   let sensel = { frame: _=>_ };
 
@@ -48,6 +49,7 @@ o.sensel = (_=>{
   const touchListeners = [];
   const touchHandlers = {};
   u.use = (senselDevice,contactStates)=>{
+    u.connected = true;
     sensel = senselDevice;
     u.states = contactStates;
     setInterval(_=>{

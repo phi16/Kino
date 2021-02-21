@@ -62,6 +62,8 @@ module.exports = Kino=>{
           R.X.moveTo(I.width-M.hPad, M.vPad);
           R.X.lineTo(I.width-M.hPad, I.height-M.vPad);
         }).stroke(1,0,0.2,1);
+        if(I.connected) R.circle(I.width-M.vPad/2, M.vPad/2, M.vPad/6).stroke(1,0,0.2,0.6);
+        R.text(Kino.H.bpm, I.width-M.vPad, M.vPad*0.72, M.vPad*0.6).r().fill(1,0,0.3);
 
         R.blend("lighter",_=>{
           // Input Overlay

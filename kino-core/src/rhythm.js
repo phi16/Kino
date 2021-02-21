@@ -70,11 +70,13 @@ let bpm = 120;
 let beatSamples = sampleRate / bpm * 60;
 o.beat = beat;
 o.time = time;
+o.bpm = bpm;
 o.changeTempo = nextTempo=>{
   const t = time/beatSamples;
   bpm = nextTempo;
   beatSamples = sampleRate / bpm * 60;
   time = t*beatSamples;
+  o.bpm = bpm;
   o.time = t;
 };
 o.step = _=>{
