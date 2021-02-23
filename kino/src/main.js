@@ -39,30 +39,40 @@ navigator.requestMIDIAccess({sysex: true}).then(midi=>{
 });
 
 Kino.I.keyboard.use(document);
+const commandProgram = {};
 function commandProcess(k) {
   const m = k.split(" ");
-  if(m[0] == "tempo" || m[0] == "t") {
-    const t = parseFloat(m[1]);
-    if(t <= 0 || isNaN(t)) Kino.L.add("Invalid tempo: " + m[1]);
-    else {
-      Kino.H.changeTempo(t);
-      Kino.L.add("Tempo changed: " + t);
-    }
-  } else if(m[0] == "eval" || m[0] == "e" || m[0] == "run" || m[0] == "r") {
-    const H = Kino.H;
+  while(m[0] == "") m.shift();
+  if(m.length == 0) return;
+  const h = m[0].substr(0,1);
+  if(commandProgram[h]) {
     m.shift();
-    try {
-      const ret = Function('"use strict"; return ({H})=>{ return ' + m.join(" ") + ';}')()(Kino);
-      if(ret !== undefined && ret !== null) {
-        Kino.L.add("> " + ret);
-      } else Kino.L.add("> done.");
-    } catch(e) {
-      Kino.L.add("> " + e + ".");
-    }
+    commandProgram[h](m);
   } else {
-    Kino.L.add();
+    Kino.L.add("Command not found: " + m[0]);
   }
+  return true;
 }
+commandProgram["t"] = m=>{
+  const t = parseFloat(m[0]);
+  if(t <= 0 || isNaN(t)) Kino.L.add("Invalid tempo: " + m[0]);
+  else {
+    Kino.H.changeTempo(t);
+    Kino.L.add("Tempo changed: " + t);
+  }
+};
+commandProgram["e"] = commandProgram["r"] = m=>{
+  const H = Kino.H;
+  try {
+    const ret = Function('"use strict"; return ({H})=>{ return ' + m.join(" ") + ';}')()(Kino);
+    if(ret !== undefined && ret !== null) {
+      Kino.L.add("> " + ret);
+    } else Kino.L.add("> done.");
+  } catch(e) {
+    Kino.L.add("> " + e + ".");
+  }
+};
+
 let commandMode = false, command = "";
 Kino.I.keyboard.on(function*(k) {
   if(k == ":") {
@@ -72,8 +82,11 @@ Kino.I.keyboard.on(function*(k) {
   } else if(commandMode) {
     if(k == "Enter") {
       commandMode = false;
-      Kino.L.commitCommand();
-      commandProcess(command);
+      if(command == "") Kino.L.revokeCommand();
+      else {
+        Kino.L.commitCommand();
+        commandProcess(command);
+      }
     } else if(k == "Escape") {
       commandMode = false;
       Kino.L.revokeCommand();
@@ -104,4 +117,11 @@ mixer.generators = generators;
 Kino.S.voiceAnalysis();
 
 // Network broadcast
-require('./connect')(Kino);
+const connect = require('./connect')(Kino);
+let currentStream = false;
+commandProgram["s"] = m=>{
+  currentStream = !currentStream;
+  connect.switch(currentStream);
+  if(currentStream == false) Kino.L.add("Use stream: Window");
+  else Kino.L.add("Use stream: Screen");
+};
