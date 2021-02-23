@@ -9,8 +9,8 @@ module.exports = (Kino,stream)=>{
       Kino.L.add("Kino disconnected.");
     });
     const C = Kino.C(socket);
-
     C.onTrack(e=>{
+      console.log(e);
       stream.setStream(e.streams[0]);
     });
   });

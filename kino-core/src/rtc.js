@@ -27,10 +27,16 @@ module.exports = socket=>{
       hasRemoteAnswer = true;
     }
   });
-  o.addStream = ms=>{
-    ms.getTracks().forEach(track=>{
-      pc.addTrack(track, ms);
-    });
+  const ms = new MediaStream();
+  const tracks = {};
+  o.addTrack = (key,track)=>{
+    sender = pc.addTrack(track, ms);
+    tracks[key] = sender;
+  };
+  o.removeTrack = key=>{
+    const sender = tracks[key];
+    pc.removeTrack(sender);
+    delete tracks[key];
   };
   o.onTrack = cb=>{
     pc.ontrack = cb;
