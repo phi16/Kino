@@ -10,9 +10,7 @@ module.exports = Kino=>{
       video: {
         mandatory: {
           chromeMediaSource: 'desktop',
-          chromeMediaSourceId: source.id,
-          minWidth: 1280, maxWidth: 1280,
-          minHeight: 720, maxHeight: 720
+          chromeMediaSourceId: source.id
         }
       }
     });
@@ -52,7 +50,7 @@ module.exports = Kino=>{
     if(visualTrack) {
       visualTrack.stop();
       visualTrack = null;
-      getVisualTrack.then(newVisual=>{
+      getVisualTrack().then(newVisual=>{
         Object.values(cons).forEach(C=>{
           C.removeTrack("visual");
           C.addTrack("visual", newVisual);
