@@ -36,6 +36,11 @@ o.createEffector = _=>{
   lo.connect(h).connect(hw).connect(ho);
   lo.connect(hd).connect(ho);
   ho.connect(g);
+  const d = X.createDelay();
+  d.delayTime.value = 0.3333;
+  const dg = X.createGain();
+  dg.gain.value = 0.2;
+  g.connect(d).connect(dg).connect(i);
   return {
     in: i,
     out: g,

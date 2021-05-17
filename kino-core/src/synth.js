@@ -98,7 +98,7 @@ module.exports = Kino=>{
     vec2 seed = vec2(float(i), t);
     float rate = note.x;
     p = vec4(rand(seed+1.), d*rate, t, d);
-    q = vec4(1., fadeCut ? 1. : 0., 0., 0.);
+    q = vec4(rand(seed+2.)*0.5+0.5, fadeCut ? 1. : 0., 0., 0.);
   }`;
 
   const grainStep = `
@@ -313,12 +313,12 @@ module.exports = Kino=>{
   `,rect,["tex","move"]);
 
   const raws = [
+    { freq: 656,    name: "whistle_low.wav" },
+    { freq: 1216.5, name: "whistle_high.wav" },
+    { freq: 288,    name: "glsl_inst0.wav" },
     { freq: 442,    name: "voice1401.wav" },
     { freq: 495,    name: "BKAYE_brass_pad_G.wav" },
-    { freq: 1216.5, name: "whistle_high.wav" },
-    { freq: 656,    name: "whistle_low.wav" },
     { freq: 356,    name: "voice1630.wav" },
-    { freq: 288,    name: "glsl_inst0.wav" },
     { freq: 192.5,  name: "glsl_dist.wav" },
   ];
   const audioBuffer = G.DataBuffer(2048,1024);

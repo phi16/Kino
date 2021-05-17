@@ -20,8 +20,8 @@ module.exports = (Kino,o)=>{
       touches: _=>touches,
       shape: _=>[volL, volH],
       level: 0,
-      press: touch=>{
-        vel0 += touch.vel; // TODO: may miss
+      press: (key, touch)=>{
+        touches[key].vel = touch.vel;
       },
       acquire: _=>{
         if(count == 0) vel1 = vel2 = velM = 0;
@@ -29,13 +29,17 @@ module.exports = (Kino,o)=>{
         return n;
       },
       register: key=>{
-        touches[key] = true;
+        touches[key] = { vel: 0 };
       },
       release: key=>{
         delete touches[key];
         count--;
       },
       step: dt=>{
+        Object.keys(touches).forEach(k=>{
+          const t = touches[k];
+          vel0 += t.vel;
+        });
         velM = Math.max(velM, vel2);
         volH *= Math.exp(-dt*8);
         if(count == 0) {
@@ -111,11 +115,11 @@ module.exports = (Kino,o)=>{
 
     touch.update();
     touch.m = touch.d > 0 ? 1 : 0.5;
-    note.press(touch);
+    note.press(key, touch);
     touchCount[cp]++;
     while((c=yield).state == I.states.MOVE) {
       touch.update();
-      note.press(touch);
+      note.press(key, touch);
     }
     touch.vel = 0;
     touchCount[cp]--;
@@ -159,7 +163,7 @@ module.exports = (Kino,o)=>{
             const hue = x*0.02+y*0.05-0.2;
             const n = notes[p];
             const shape = n ? n.shape() : [0,0];
-            R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,0.9).fill(hue,shape[0]>0.075?1:0,(center?0.03:0.08) + touchBright[cp]*0.1);
+            R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,center?0.9:0.8).fill(hue,shape[0]>0.075?1:0,(center?0.03:0.01)*(1+touchBright[cp]*3));
             const vdi = Math.abs(vf.p-p);
             if(vdi < 1) {
               let str = 1 - vdi;
