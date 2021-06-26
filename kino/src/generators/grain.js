@@ -74,7 +74,7 @@ module.exports = (Kino,o)=>{
     const ly = (c.y - M.h/2) / panelScale;
     let ci = lx/1.5;
     let i = Math.floor(ci);
-    let shift = i%2 == 0 ? 0 : 0.5;
+    const shift = i%2 == 0 ? 0 : 0.5;
     let cj = ly/Math.sqrt(3) - shift;
     let j = Math.floor(cj);
     ci -= i, cj -= j;
@@ -85,8 +85,11 @@ module.exports = (Kino,o)=>{
     } else if(cj > 0.5) {
       j++;
     }
+    return panelFromIndex(i, j);
+  }
+  function panelFromIndex(i,j) {
     const p = i*6 + (i%2 == 0 ? 1 : 0) - j*2 - 8;
-    shift = i%2 == 0 ? 0 : 0.5;
+    const shift = i%2 == 0 ? 0 : 0.5;
     const cx = M.mainW/2 + i*1.5*panelScale;
     const cy = M.mainH/2 + (j+shift)*Math.sqrt(3)*panelScale;
     return { i, j, p, f: 440*Math.pow(2, p/12), cx, cy };
@@ -132,6 +135,47 @@ module.exports = (Kino,o)=>{
     }, 1000);
   };
 
+  // Scheduled notes
+  o.scheduler.onTap(_=>{
+    const activeNotes = [];
+    Object.keys(touchPanels).forEach(key=>{
+      const t = touchPanels[key];
+      if(t.active) {
+        activeNotes.push({
+          i: t.i, j: t.j, vel: t.vel
+        });
+      }
+    });
+    if(activeNotes.length > 0) {
+      o.scheduler.register(activeNotes);
+    }
+  });
+  o.rhythmNote = (d,us)=>{
+    us.forEach(u=>{
+      const panel = panelFromIndex(u.i, u.j);
+      const note = retainNote(panel.p, panel.f);
+      if(note == null) return;
+
+      const key = Math.random();
+      const touch = { vel: 0 };
+      touch.update = _=>{
+        touch.vel = u.vel;
+      };
+      touchPanels[key] = touch;
+      note.register(key);
+      const cp = (panel.p%12+12)%12;
+
+      touch.update();
+      note.press(key, touch);
+      touchCount[cp]++;
+      setTimeout(_=>{
+        touch.vel = 0;
+        note.release(key);
+        touchCount[cp]--;
+      }, 1000);
+    });
+  };
+
   o.uiStep = dt=>{
     for(const p in notes) {
       const n = notes[p];
@@ -153,7 +197,7 @@ module.exports = (Kino,o)=>{
     R.blend("lighter",_=>{
       R.translate(M.mainW/2,M.mainH/2).with(_=>{
         const vf = S.peakFreq;
-        vf.p = Math.log2(vf.f/440) * 12 - 24;
+        vf.p = Math.log2(vf.f/440) * 12 - 12;
         for(let i=-5;i<6;i++) {
           for(let j=-3;j<4;j++) {
             const x = i*1.5;
@@ -165,7 +209,7 @@ module.exports = (Kino,o)=>{
             const hue = x*0.02+y*0.05-0.2;
             const n = notes[p];
             const shape = n ? n.shape() : [0,0];
-            R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,center?0.9:0.8).fill(hue,shape[0]>storeThreshold?1:0,(center?0.03:0.01)*(1+touchBright[cp]*3));
+            R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y),6,0,center?0.9:0.8).fill(hue,shape[0]>storeThreshold?1:0,(center?0.03:0.01)*(1+touchBright[cp]*2));
             const vdi = Math.abs(vf.p-p);
             if(vdi < 1) {
               let str = 1 - vdi;
@@ -196,7 +240,7 @@ module.exports = (Kino,o)=>{
           t.m += ((t.d>0 ? 1 : 0.5) - t.m) * 0.4;
           R.polyOutline(x*s,y*s,0.96*s*shapeDist(x,y)*t.m,6,0,1-scale*0.3).fill(1,0,0.1*Math.pow(scale, 0.4));
         });
-        const centerFreq = 440*2/3*4;
+        const centerFreq = 440*2/3*2;
         const vCenter = (Math.log2(vf.f/centerFreq))*s*3;
         const vOffset = M.mainH*Math.sqrt(3)/6/2;
         R.line(vCenter-vOffset,-M.mainH/2,vCenter+vOffset,M.mainH/2).stroke(0,0,vf.s,1);

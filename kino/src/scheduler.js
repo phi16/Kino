@@ -138,6 +138,10 @@ module.exports = (Kino,effector)=>g=>{
   })();
 
   // Rhythm Note
+  let tapEvent = _=>_;
+  o.onTap = h=>{
+    tapEvent = h;
+  };
   const selectingNodes = [];
   let selectingSequence = null;
   for(let i=0;i<8;i++) selectingNodes[i] = false;
@@ -149,6 +153,7 @@ module.exports = (Kino,effector)=>g=>{
     if(q.rhSel[touchIndex]) return;
     q.rhSel[touchIndex] = true;
     selectingNodes[touchIndex] = true;
+    tapEvent();
     while(true) {
       const nc = yield;
       if(nc.state == I.states.END) {

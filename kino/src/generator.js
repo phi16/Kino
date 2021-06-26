@@ -87,6 +87,9 @@ module.exports = (Kino,Scheduler)=>{
   };
   Gen("Grain", o=>{
     require('./generators/grain')(Kino,o);
+    o.note = (d,u)=>{
+      o.rhythmNote(d,u);
+    };
   });
   Gen("Noise", o=>{
     require('./generators/noise')(Kino,o);
